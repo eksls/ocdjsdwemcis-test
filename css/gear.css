@@ -1,0 +1,121 @@
+/* 1. 전체 레이아웃 (유지하되 유연성 추가) */
+.gear {
+  display: grid;
+  /* 장신구(1.2), 팬던트(1.4), 젬(0.6) 비율로 분배하여 젬 칸 자체를 좁게 만듦 */
+  grid-template-columns: 0.9fr 1.3fr 0.7fr; 
+  gap: 12px;
+  align-items: start;
+}
+
+/* 2. 섹션 스타일 (유지) */
+.gear-section {
+  border: 1px solid #d1d5da;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  overflow: hidden; /* 내부 요소가 넘침 방지 */
+}
+
+/* 3. 헤더 및 버튼 (유지) */
+.gear-section h2 {
+  display: inline-block;
+  margin: 0 10px 10px 0;
+  font-size: 18px;
+  vertical-align: middle;
+  font-weight: bold;
+}
+.accessory h2 { color: #007bff; }
+.pendant h2 { color: #9b59b6; }
+.gem h2 { color: #8B4513; }
+
+.gear-section button {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  background: #fff;
+  vertical-align: middle;
+}
+
+.gem-header {
+  display: grid !important;
+  /* 아래 gem-slot과 똑같은 비율로 설정해야 칸이 맞음 */
+  grid-template-columns: 35px repeat(3, 0.3fr) !important;
+  gap: 4px;
+  margin-bottom: 5px;
+  text-align: center;
+}
+
+.gem-header span {
+  font-size: 11px;
+  font-weight: bold;
+  color: #8B4513;
+  opacity: 0.8;
+}
+
+/* 4. [수정] 젬 슬롯: 가로폭 대폭 축소 (ㅈㄴ 줄임) */
+.gem-slot {
+  display: grid !important;
+  /* 35px(레벨) + 0.8배 비율로 입력창 압축 */
+  grid-template-columns: 35px repeat(3, 0.3fr) !important; 
+  gap: 4px; /* 간격도 줄여서 공간 확보 */
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+.gem-slot:last-child { border-bottom: none; }
+
+.gem-slot span {
+  font-weight: bold;
+  font-size: 14px; /* 살짝 조정 */
+  color: #8B4513;
+}
+
+
+/* 모든 입력창 공통: 폰트는 유지, 여백 축소 */
+input[type="number"], select {
+  height: 34px !important;
+  font-size: 14px !important;
+  border-radius: 6px !important;
+  border: 1px solid #ced4da !important;
+  text-align: center;
+  padding: 0 !important; /* 내부 여백 제거해서 너비 확보 */
+  width: 100%;
+}
+
+/* 5. 장신구 (유지 및 미세조정) */
+.accessory-slot {
+  display: grid !important;
+  grid-template-columns: 1.8fr 1.1fr 1.1fr !important;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* 6. [수정] 팬던트 슬롯: 수치 칸 1/4 축소 */
+.pendant-slot {
+  display: grid !important;
+  /* 수치 적는 곳(0.7fr)을 기존 0.9fr에서 약 1/4 가량 줄임 */
+  grid-template-columns: 1.4fr repeat(3, 1.1fr 0.8fr) !important; 
+  gap: 4px; /* 간격 축소 */
+  margin-bottom: 10px;
+}
+
+.pendant-slot input[type="number"] {
+  font-weight: bold;
+  background-color: #fff;
+  min-width: 0; /* 강제 축소 허용 */
+}
+
+/* 7. 10개 단위 구분선 (유지) */
+.unit-divider {
+  border-top: 2px dashed #bbb !important;
+  margin: 20px 5px !important;
+  height: 0;
+  grid-column: 1 / -1;
+}

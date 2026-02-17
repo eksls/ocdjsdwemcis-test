@@ -1,0 +1,32 @@
+/* 전체 기본 */
+body {
+  font-family: sans-serif;
+  margin: 8px;
+}
+
+/* 속성 블록 */
+.attr {
+  border: 1px solid #aaa;
+  margin-bottom: 10px;
+  padding: 6px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 슬롯 */
+.slots {
+  margin-top: 6px;
+}
+
+.slot {
+  border: 1px dashed #666;
+  padding: 6px;
+  margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 4px;
+}

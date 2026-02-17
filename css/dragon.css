@@ -1,0 +1,143 @@
+/* ===== 입력 요소 공통: 높이를 살짝 키우고 테두리를 부드럽게 ===== */
+input,
+select {
+  height: 30px; /* 24px -> 30px: 클릭하기 훨씬 편해짐 */
+  font-size: 13px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5da;
+  border-radius: 4px;
+  background-color: #fff;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.1);
+}
+
+/* 슬롯 전체: 배경색을 넣어 카드 느낌 강조 */
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); /* 화면 크기에 따라 유연하게 */
+  gap: 12px;
+  padding: 10px;
+}
+
+.slot {
+  border: 1px solid #e1e4e8; /* 점선 제거, 실선으로 깔끔하게 */
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+/* slot 내부 row */
+.slot-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slot-row {
+  display: flex;
+  gap: 6px;
+}
+
+/* 강조: 용 이름은 좀 더 돋보이게 */
+.slot-row.row1 input {
+  flex: 2.5;
+  font-weight: bold;
+  border-left: 3px solid #007bff; /* 포인트 강조 */
+}
+
+/* 정령 그룹: 배경을 살짝 어둡게 해서 시각적으로 묶어줌 */
+.spirit-group {
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  background: #edf0f2;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.spirit-group select {
+  border: none;
+  background: transparent;
+  height: 26px; /* 내부 요소는 살짝 작게 */
+  font-size: 11px;
+}
+
+/* 타입/부가옵션 행 배경색 차별화 */
+.slot-row.row2 select {
+  background-color: #ffffff;
+}
+
+/* 속성 헤더 (땅, 불, 물 등) */
+.attr .header {
+  background: #eee;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start; /* 핵심: 모든 요소를 왼쪽으로 정렬 */
+  gap: 12px;                  /* 이름과 버튼 사이, 버튼들 사이의 간격 */
+  margin-bottom: 12px;
+  padding: 8px;
+  background-color: #f8f9fa;   /* 헤더 배경색 (선택사항) */
+  border-radius: 6px;
+}
+
+.header strong {
+  font-size: 16px;
+  min-width: 50px;            /* 이름 칸의 최소 너비를 잡아주면 정렬이 더 깔끔함 */
+}
+
+.header button {
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.header button:hover {
+  background-color: #e9ecef;
+}
+
+/* 기존 UI를 깨뜨리지 않고 버튼만 왼쪽 정렬 시키는 마법 */
+.attr .header {
+    justify-content: flex-start !important; /* 양 끝 정렬을 왼쪽 정렬로 강제 변경 */
+    gap: 15px; /* 이름과 버튼들 사이의 간격 */
+}
+
+/* 버튼들을 묶어주는 그룹 스타일 */
+.header-btn-group {
+    display: flex;
+    gap: 6px; /* 추가 버튼과 제거 버튼 사이의 간격 */
+}
+
+/* 버튼 디자인 (기존 스타일 유지하며 높이만 살짝 맞춤) */
+.header-btn-group button {
+    height: 26px;
+    padding: 0 10px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+}
+/* 속성 이름 가독성 보정 */
+.attr .header strong {
+  font-size: 18px;    /* 크기를 살짝 키워서 색상이 잘 보이게 */
+  font-weight: 800;   /* 아주 굵게 설정 */
+  text-shadow: 1px 1px 0px rgba(255,255,255,0.5); /* 밝은색 글자 대비용 */
+}
