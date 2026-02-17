@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>길드전 결과</title>
+<link rel="stylesheet" href="css/common.css">
+<link rel="stylesheet" href="css/result.css">
+<style>
+  body { font-family: sans-serif; margin: 20px; }
+  h1 { margin-bottom: 10px; }
+  .section { display: flex; gap: 10px; margin-bottom: 20px; }
+  .container { border: 1px solid #ccc; padding: 10px; flex: 1; min-height: 200px; }
+  .row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  label { width: 40px; }
+  select { flex: 1; padding: 4px 6px; }
+</style>
+</head>
+<body>
+
+    <div id="loading-overlay">
+    <div id="loading-text">최적 조합 계산 중... (0%)</div>
+    <div class="progress-bar">
+        <div id="loading-fill" class="progress-fill"></div>
+    </div>
+    <div style="font-size:14px; margin-top:10px; color:#ddd;">잠시만 기다려주세요.</div>
+</div>
+
+<h1>버프 / 너프 설정</h1>
+<div class="section" id="config-section">
+  <div class="container config-box" id="buff-container">
+    <h2>버프</h2>
+    <div class="config-row-wrapper">
+      <div class="config-group">
+        <label>속성</label>
+        <div class="select-column">
+          <select id="buff-attr">
+            <option>선택</option><option>땅</option><option>물</option><option>불</option><option>바람</option>
+            <option>빛</option><option>어둠</option><option>여명</option><option>황혼</option><option>악몽</option>
+          </select>
+          <select id="buff-stat1">
+            <option value="선택">선택</option>
+  <option value="체">HP</option>
+  <option value="공">ATK</option>
+  <option value="방">DEF</option>
+          </select>
+        </div>
+      </div>
+      <div class="config-group">
+        <label>타입</label>
+        <div class="select-column">
+          <select id="buff-type">
+            <option>선택</option><option>체</option><option>공</option><option>방</option>
+            <option>체공</option><option>체방</option><option>공방</option>
+          </select>
+          <select id="buff-stat2">
+          <option value="선택">선택</option>
+  <option value="체">HP</option>
+  <option value="공">ATK</option>
+  <option value="방">DEF</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container config-box" id="debuff-container">
+    <h2>너프</h2>
+    <div class="config-row-wrapper">
+      <div class="config-group">
+        <label>속성</label>
+        <div class="select-column">
+          <select id="debuff-attr">
+            <option>선택</option><option>땅</option><option>물</option><option>불</option><option>바람</option>
+            <option>빛</option><option>어둠</option><option>여명</option><option>황혼</option><option>악몽</option>
+          </select>
+          <select id="debuff-stat1">
+            <option value="선택">선택</option>
+  <option value="체">HP</option>
+  <option value="공">ATK</option>
+  <option value="방">DEF</option>
+          </select>
+        </div>
+      </div>
+      <div class="config-group">
+        <label>타입</label>
+        <div class="select-column">
+          <select id="debuff-type">
+            <option>선택</option><option>체</option><option>공</option><option>방</option>
+            <option>체공</option><option>체방</option><option>공방</option>
+          </select>
+          <select id="debuff-stat2">
+            <option value="선택">선택</option>
+  <option value="체">HP</option>
+  <option value="공">ATK</option>
+  <option value="방">DEF</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div style="text-align: center; margin-bottom: 30px;">
+  <button id="calc-btn" style="padding: 15px 40px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 8px;">
+    최적 조합 계산하기
+  </button>
+</div>
+
+<h1>결과 (Top 3)</h1>
+<div id="result-container">
+  <div class="container result-card" id="result1">
+    <h3>1순위</h3>
+    <div class="vval-display">-</div>
+  </div>
+  <div class="container result-card" id="result2">
+    <h3>2순위</h3>
+    <div class="vval-display">-</div>
+  </div>
+  <div class="container result-card" id="result3">
+    <h3>3순위</h3>
+    <div class="vval-display">-</div>
+  </div>
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/result.js"></script>
+</body>
+</html>

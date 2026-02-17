@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계산기</title>
+
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/gear.css">
+</head>
+
+<body>
+
+<div class="gear">
+
+    <div class="gear-section accessory">
+        <h2>장신구</h2>
+        <button id="add-accessory">칸 추가</button>
+        <button id="remove-accessory">칸 제거</button>
+        <div id="accessory-container"></div>
+    </div>
+
+    <div class="gear-section pendant">
+        <h2>팬던트</h2>
+        <button id="add-pendant">칸 추가</button>
+        <button id="remove-pendant">칸 제거</button>
+        <div id="pendant-container"></div>
+    </div>
+
+    <div class="gear-section gem">
+        <h2>젬</h2>
+        <button id="add-gem" style="display:none;">추가</button> 
+        <div class="gem-header">
+            <span></span> <span>HP</span>
+            <span>ATK</span>
+            <span>DEF</span>
+        </div>
+        <div id="gem-container"></div>
+    </div>
+
+</div>
+
+<script src="js/shared.js"></script>
+<script src="js/gear.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>길드전 계산기</title>
+<style>
+  body { margin: 0; font-family: sans-serif; }
+  .tabs {
+    display: flex;
+    background: #222;
+  }
+  .tab {
+    padding: 10px 16px;
+    color: #ccc;
+    cursor: pointer;
+    border-right: 1px solid #444;
+  }
+  .tab.active {
+    background: #fff;
+    color: #000;
+    font-weight: bold;
+  }
+  iframe {
+    width: 100%;
+    height: calc(100vh - 42px);
+    border: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="tabs">
+  <div class="tab active" data-src="result.html">비벨 결과</div>
+  <div class="tab" data-src="dragon.html">용 / 정령</div>
+  <div class="tab" data-src="gear.html">장신구 / 팬던트 / 젬</div>
+</div>
+
+<iframe id="view" src="result.html"></iframe>
+
+<script>
+  const tabs = document.querySelectorAll(".tab");
+  const iframe = document.getElementById("view");
+
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      iframe.src = tab.dataset.src;
+    };
+  });
+</script>
+
+</body>
+</html>
