@@ -43,7 +43,7 @@ stat.addEventListener("change", triggerSave);
 }
 
 // 🔹 슬롯 생성
-function createSlot(data = null) {
+function createSlot(data = null, isReserve = false) {
   const slot = document.createElement("div");
   slot.className = "slot";
 
@@ -56,7 +56,7 @@ function createSlot(data = null) {
   
   const name = document.createElement("input");
   name.className = "dragon-name";
-  name.placeholder = "용 이름";
+  name.placeholder = isReserve ? "예비 정령" : "용 이름";
 name.addEventListener("input", triggerSave);
   
   const s1 = createSpirit(data?.spiritStats?.[0], data?.spiritTypes?.[0]);
@@ -71,7 +71,10 @@ name.addEventListener("input", triggerSave);
   row2.className = "slot-row row2";
   
   const type = document.createElement("select");
-  ["타입","체","공","방","체공","체방","공방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
+  const typeOptions = isReserve
+    ? ["타입","체","공","방","체공","체방","공방","전체"]
+    : ["타입","체","공","방","체공","체방","공방"];
+  typeOptions.forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
   
   const dStat = document.createElement("select");
   ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
@@ -155,6 +158,38 @@ ATTRS.forEach(([key, label]) => {
   container.appendChild(attrDiv);
 });
 
+// 🔹 예비 정령 섹션
+(function() {
+  const reserveDiv = document.createElement("div");
+  reserveDiv.className = "attr";
+  reserveDiv.dataset.key = "reserve";
+
+  const slotsDiv = document.createElement("div");
+  slotsDiv.className = "slots";
+  slotsDiv.dataset.key = "reserve";
+  slotsDiv.appendChild(createSlot(null, true));
+
+  const addBtn = document.createElement("button");
+  addBtn.textContent = "칸 추가";
+  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); triggerSave(); } };
+
+  const removeBtn = document.createElement("button");
+  removeBtn.textContent = "칸 제거";
+  removeBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); } };
+
+  const header = document.createElement("div");
+  header.className = "header";
+  
+  const nameLabel = document.createElement("strong");
+  nameLabel.textContent = "예비 정령";
+  nameLabel.style.color = "#e67e22";
+
+  header.append(nameLabel, addBtn, removeBtn);
+  reserveDiv.appendChild(header);
+  reserveDiv.appendChild(slotsDiv);
+  container.appendChild(reserveDiv);
+})();
+
 // 🔹 저장
 function saveDragonUI(){
     const data = [];
@@ -203,6 +238,14 @@ function loadDragonUI(){
     if(items.length===0){ parent.appendChild(createSlot()); }
     else{ items.forEach(item=>parent.appendChild(createSlot(item))); }
   });
+
+  // 예비 정령 로드
+  const reserveParent = document.querySelector('.slots[data-key="reserve"]');
+  if(reserveParent) {
+    const reserveItems = data.filter(d=>d.attrKey==="reserve");
+    if(reserveItems.length===0){ reserveParent.appendChild(createSlot(null, true)); }
+    else{ reserveItems.forEach(item=>reserveParent.appendChild(createSlot(item, true))); }
+  }
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{ loadDragonUI(); });

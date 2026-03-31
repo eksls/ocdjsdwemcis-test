@@ -209,6 +209,7 @@ const ResultEngine = (function() {
             team.push({
                 ...result,
                 dA: attrMap[dragonObj.attrKey] || "",
+                isReserve: member.isReserve || false,
                 gems: { h: result.h, a: result.a, d: result.d, details: result.gemLevels }
             });
 
@@ -230,15 +231,18 @@ const ResultEngine = (function() {
 
     return {
 run: function() {
-        const dragons = (_storage.load("guild_dragon_data") || []).filter(d => d.name && d.type !== "타입");
+        const allDragonData = _storage.load("guild_dragon_data") || [];
         const gear = _storage.load("guild_gear_data") || {};
         const getV = (id) => document.getElementById(id).value;
         const attrMap = { "earth": "땅", "water": "물", "fire": "불", "wind": "바람", "light": "빛", "dark": "어둠", "dawn": "여명", "dusk": "황혼", "nightmare": "악몽" };
+        const krToAttrKey = { "땅": "earth", "물": "water", "불": "fire", "바람": "wind", "빛": "light", "어둠": "dark", "여명": "dawn", "황혼": "dusk", "악몽": "nightmare" };
 
         const config = {
             b1: getV("buff-attr"), b2: getV("buff-stat1"), b3: getV("buff-type"), b4: getV("buff-stat2"),
             d1: getV("debuff-attr"), d2: getV("debuff-stat1"), d3: getV("debuff-type"), d4: getV("debuff-stat2")
         };
+
+        const maxReserve = parseInt(getV("reserve-count")) || 0;
 
         const pool = {};
         [36, 37, 38, 39, 40].forEach((lvl, idx) => {
@@ -271,45 +275,120 @@ run: function() {
         const statIdx = { "체": 0, "공": 1, "방": 2 };
         const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
 
+        // ===== 일반 용 / 예비 정령 분리 =====
+        const regularDragons = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입");
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입");
+        
+        // 예비 정령 자동 이름 부여
+        let rIdx = 1;
+        reserveRaw.forEach(d => {
+            if (!d.name || d.name.trim() === "") { d.name = `예비 정령${rIdx}`; }
+            rIdx++;
+        });
+        const reserveDragons = reserveRaw.filter(d => d.name);
+
+        // 예비 정령 속성 = 버프 속성
+        const buffAttrKey = krToAttrKey[config.b1] || null;
+
+        // dragons 배열: 일반 + 예비(타입 확정된) — _allocateTeam에서 사용
+        const dragons = [...regularDragons];
+
         // ===== 1단계: 가상 자원으로 잠재력 평가 → 상위 N명 후보 선발 =====
         const candidates = [];
 
-        dragons.forEach(dragon => {
-            const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
+        // 멀티플라이어 계산 헬퍼
+        function _calcMult(dragonAttrKr, dragonType) {
             let mult = [0, 0, 0];
             if (dragonAttrKr === config.b1 && statIdx[config.b2] !== undefined) mult[statIdx[config.b2]] += 0.2;
-            if (dragon.type === config.b3 && statIdx[config.b4] !== undefined) mult[statIdx[config.b4]] += 0.2;
+            if (dragonType === config.b3 && statIdx[config.b4] !== undefined) mult[statIdx[config.b4]] += 0.2;
             if (dragonAttrKr === config.d1 && statIdx[config.d2] !== undefined) mult[statIdx[config.d2]] -= 0.2;
-            if (dragon.type === config.d3 && statIdx[config.d4] !== undefined) mult[statIdx[config.d4]] -= 0.2;
+            if (dragonType === config.d3 && statIdx[config.d4] !== undefined) mult[statIdx[config.d4]] -= 0.2;
+            return mult;
+        }
 
+        // 일반 용 평가
+        regularDragons.forEach(dragon => {
+            const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
+            const mult = _calcMult(dragonAttrKr, dragon.type);
             const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vAllPens, mult);
             if (buffRes) {
-                candidates.push({ ...buffRes, mult: mult });
+                candidates.push({ ...buffRes, mult, isReserve: false });
             }
         });
+
+        // 예비 정령 평가 (maxReserve > 0일 때만)
+        if (maxReserve > 0) {
+            reserveDragons.forEach(dragon => {
+                const reserveAttrKr = buffAttrKey ? config.b1 : "";
+                const resolvedAttrKey = buffAttrKey || "reserve";
+
+                if (dragon.type === "전체") {
+                    // 6가지 타입 중 최고 비벨만 채택
+                    let bestRes = null, bestType = "체";
+                    ["체","공","방","체공","체방","공방"].forEach(tryType => {
+                        const tryDragon = { ...dragon, attrKey: resolvedAttrKey, type: tryType };
+                        const mult = _calcMult(reserveAttrKr, tryType);
+                        const res = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
+                        if (res && (!bestRes || res.vval > bestRes.vval)) {
+                            bestRes = res;
+                            bestType = tryType;
+                            bestRes._mult = mult;
+                        }
+                    });
+                    if (bestRes) {
+                        const resolved = { ...dragon, attrKey: resolvedAttrKey, type: bestType };
+                        dragons.push(resolved);
+                        candidates.push({ ...bestRes, mult: bestRes._mult, isReserve: true });
+                    }
+                } else {
+                    const resolved = { ...dragon, attrKey: resolvedAttrKey };
+                    dragons.push(resolved);
+                    const mult = _calcMult(reserveAttrKr, dragon.type);
+                    const buffRes = _findBestSettingForDragon(resolved, infinitePool, virtualAccs, vAllPens, mult);
+                    if (buffRes) {
+                        candidates.push({ ...buffRes, mult, isReserve: true });
+                    }
+                }
+            });
+        }
 
         candidates.sort((a, b) => b.vval - a.vval);
         const topN = candidates.slice(0, CANDIDATE_COUNT);
 
         console.group("🛡️ 길드전 최적화 v2 - 2단계 전수탐색");
-        console.log(`%c[1단계] 가상 자원 잠재력 Top ${topN.length}명 선발 완료`, "color: #2980b9; font-weight: bold;");
-        topN.forEach((c, i) => console.log(`  ${i+1}. ${c.dN} (잠재 비벨: ${Math.floor(c.vval).toLocaleString()})`));
+        console.log(`%c[1단계] 가상 자원 잠재력 Top ${topN.length}명 선발 완료 (예비 제한: ${maxReserve}마리)`, "color: #2980b9; font-weight: bold;");
+        topN.forEach((c, i) => console.log(`  ${i+1}. ${c.dN}${c.isReserve ? " [예비]" : ""} (잠재 비벨: ${Math.floor(c.vval).toLocaleString()})`));
 
-        // ===== 2단계: C(N,3) × 6 순열 전수탐색 =====
+        // ===== 2단계: 상한선 가지치기 + 전수탐색 =====
         const n = topN.length;
-        const totalCombos = n*(n-1)*(n-2)/6;
-        const totalScenarios = totalCombos * 6;
-        console.log(`%c[2단계] ${totalCombos} 조합 × 6 순열 = ${totalScenarios} 시나리오 전수탐색 시작`, "color: #e67e22; font-weight: bold;");
+
+        // 개별 최적값 사전 계산 (자원 충돌 없는 solo 기준)
+        const soloBests = topN.map(c => {
+            const dragonObj = dragons.find(d => d.name === c.dN);
+            if (!dragonObj) return 0;
+            const solo = _findBestSettingForDragon(dragonObj, pool, realAccs, realPens, c.mult);
+            return solo ? solo.vval : 0;
+        });
+
+        console.log(`%c[2단계] C(${n},3) 조합 전수탐색 (상한선 가지치기 적용)`, "color: #e67e22; font-weight: bold;");
 
         let bestTotalVval = -1;
         let bestTeam = null;
         let scenarioCount = 0;
+        let prunedCount = 0;
 
         for (let i = 0; i < n; i++) {
             for (let j = i + 1; j < n; j++) {
                 for (let k = j + 1; k < n; k++) {
-                    const trio = [topN[i], topN[j], topN[k]];
+                    // 예비 정령 제한 체크
+                    const rCount = (topN[i].isReserve?1:0) + (topN[j].isReserve?1:0) + (topN[k].isReserve?1:0);
+                    if (rCount > maxReserve) continue;
 
+                    // ★ 상한선 가지치기: 개별 최적값 합이 현재 최고보다 낮으면 스킵
+                    const upperBound = soloBests[i] + soloBests[j] + soloBests[k];
+                    if (upperBound <= bestTotalVval) { prunedCount++; continue; }
+
+                    const trio = [topN[i], topN[j], topN[k]];
                     for (const perm of PERMS_3) {
                         const ordered = [trio[perm[0]], trio[perm[1]], trio[perm[2]]];
                         const team = _allocateTeam(ordered, dragons, pool, realAccs, realPens, attrMap);
@@ -327,7 +406,7 @@ run: function() {
             }
         }
 
-        console.log(`%c[완료] ${scenarioCount} 시나리오 탐색 완료`, "color: #27ae60; font-weight: bold;");
+        console.log(`%c[완료] ${scenarioCount} 시나리오 실행 / ${prunedCount} 조합 가지치기`, "color: #27ae60; font-weight: bold;");
         if (bestTeam) {
             console.log(`%c최적 팀 총합 비벨: ${Math.floor(bestTotalVval).toLocaleString()}`, "color: #e74c3c; font-weight: bold; font-size: 14px;");
             bestTeam.forEach((m, i) => console.log(`  ${i+1}. ${m.dN} → ${Math.floor(m.vval).toLocaleString()}`));
@@ -386,7 +465,7 @@ document.addEventListener("DOMContentLoaded", function() {
             // ★ 오류 수정 부분: (res.hp || 0).toLocaleString() 형태로 변경 ★
             el.innerHTML = `
             <div style="border:2px solid #007bff; padding:15px; border-radius:12px; background:#fff; text-align:left; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom:15px;">
-                <h3 style="margin:0; text-align:center; color:#2c3e50; font-size:1.2em;">${res.dN}</h3>
+                <h3 style="margin:0; text-align:center; color:#2c3e50; font-size:1.2em;">${res.dN}${res.isReserve ? ' <span style="font-size:11px; color:#e67e22; background:#fef5e7; padding:1px 6px; border-radius:4px;">예비</span>' : ''}</h3>
                 <p style="text-align:center; font-size:12px; color:#7f8c8d; margin:5px 0;">
                     <span style="background:#f1f2f6; padding:2px 6px; border-radius:4px;">${res.dA}</span> / 
                     <span style="background:#f1f2f6; padding:2px 6px; border-radius:4px;">${res.dT}</span> / 
