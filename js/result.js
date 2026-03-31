@@ -193,6 +193,41 @@ const ResultEngine = (function() {
         return best.vval !== -1 ? best : null;
     }
 
+    // ★ 그리디 배분: 주어진 순서대로 실제 자원 할당하고 팀 결과 반환
+    function _allocateTeam(orderedDragons, dragons, pool, realAccs, realPens, attrMap) {
+        let team = [];
+        let curPool = JSON.parse(JSON.stringify(pool));
+        let curAccs = [...realAccs];
+        let curPens = [...realPens];
+
+        for (const member of orderedDragons) {
+            const dragonObj = dragons.find(d => d.name === member.dN);
+            if (!dragonObj) continue;
+            const result = _findBestSettingForDragon(dragonObj, curPool, curAccs, curPens, member.mult);
+            if (!result) continue;
+
+            team.push({
+                ...result,
+                dA: attrMap[dragonObj.attrKey] || "",
+                gems: { h: result.h, a: result.a, d: result.d, details: result.gemLevels }
+            });
+
+            // 자원 소모
+            ["h", "a", "d"].forEach(key => {
+                const typeKr = key === "h" ? "체" : key === "a" ? "공" : "방";
+                result.gemLevels[key].forEach(lvl => {
+                    if (curPool[lvl][typeKr] > 0) curPool[lvl][typeKr]--;
+                });
+            });
+            curAccs = curAccs.filter(a => a.uid !== result.accUid);
+            curPens = curPens.filter(p => p.uid !== result.penUid);
+        }
+        return team;
+    }
+
+    const CANDIDATE_COUNT = 18; // 후보 수 (조절 가능)
+    const PERMS_3 = [[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+
     return {
 run: function() {
         const dragons = (_storage.load("guild_dragon_data") || []).filter(d => d.name && d.type !== "타입");
@@ -217,32 +252,27 @@ run: function() {
         const virtualAccs = ["황보", "여보", "악보", "물뿔(체/공)", "물뿔(체/방)", "불뿔(공/체)", "불뿔(공/방)", "대뿔(방/체)", "대뿔(방/공)", "바뿔(공/체)", "바뿔(공/방)", "바뿔(체/방)"]
             .map(name => ({ item: name, value: 19, enchant: "all", uid: "v_acc" }));
 
-        // [수정] 태양 팬던트 가상 리스트
-        const vSunPens = [
+        const vAllPens = [
             { type: "태양", opt1: "체", stat1: 6, opt2: "공", stat2: 6, opt3: "방", stat3: 6 },
             { type: "태양", opt1: "체", stat1: 12, opt2: "공", stat2: 6, opt3: "방", stat3: 0 },
             { type: "태양", opt1: "체", stat1: 12, opt2: "방", stat2: 6, opt3: "공", stat3: 0 },
             { type: "태양", opt1: "공", stat1: 12, opt2: "체", stat2: 6, opt3: "방", stat3: 0 },
             { type: "태양", opt1: "공", stat1: 12, opt2: "방", stat2: 6, opt3: "체", stat3: 0 },
             { type: "태양", opt1: "방", stat1: 12, opt2: "체", stat2: 6, opt3: "공", stat3: 0 },
-            { type: "태양", opt1: "방", stat1: 12, opt2: "공", stat2: 6, opt3: "체", stat3: 0 }
-        ].map(p => ({ ...p, uid: "v_sun" }));
+            { type: "태양", opt1: "방", stat1: 12, opt2: "공", stat2: 6, opt3: "체", stat3: 0 },
+            { type: "달", opt1: "체", stat1: 12, opt2: "공", stat2: 0 },
+            { type: "달", opt1: "공", stat1: 12, opt2: "체", stat2: 0 },
+            { type: "달", opt1: "방", stat1: 12, opt2: "체", stat2: 0 },
+            { type: "달", opt1: "체", stat1: 6, opt2: "공", stat2: 6 },
+            { type: "달", opt1: "체", stat1: 6, opt2: "방", stat2: 6 },
+            { type: "달", opt1: "공", stat1: 6, opt2: "방", stat2: 6 }
+        ].map(p => ({ ...p, uid: "v_pen" }));
 
-        // [추가] 달 팬던트 가상 리스트 (비교용)
-        const vMoonPens = [
-            { opt1: "체", stat1: 12, opt2: "공", stat2: 0 },
-            { opt1: "공", stat1: 12, opt2: "체", stat2: 0 },
-            { opt1: "방", stat1: 12, opt2: "체", stat2: 0 },
-            { opt1: "체", stat1: 6, opt2: "공", stat2: 6 },
-            { opt1: "체", stat1: 6, opt2: "방", stat2: 6 },
-            { opt1: "공", stat1: 6, opt2: "방", stat2: 6 }
-        ].map(p => ({ ...p, type: "달", uid: "v_moon" }));
-
-        const sunList = [];
-        const moonList = [];
-        const buffedList = [];
         const statIdx = { "체": 0, "공": 1, "방": 2 };
         const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
+
+        // ===== 1단계: 가상 자원으로 잠재력 평가 → 상위 N명 후보 선발 =====
+        const candidates = [];
 
         dragons.forEach(dragon => {
             const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
@@ -252,79 +282,63 @@ run: function() {
             if (dragonAttrKr === config.d1 && statIdx[config.d2] !== undefined) mult[statIdx[config.d2]] -= 0.2;
             if (dragon.type === config.d3 && statIdx[config.d4] !== undefined) mult[statIdx[config.d4]] -= 0.2;
 
-            // 1. 태양 팬던트 잠재력
-            const sunRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vSunPens, [0, 0, 0]);
-            // 2. 달 팬던트 잠재력
-            const moonRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vMoonPens, [0, 0, 0]);
-            // 3. 실전 버프 잠재력 (멤버 선발용 - 여기서는 태양/달 모두 고려하여 가장 강한 상태를 뽑음)
-            const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, [...vSunPens, ...vMoonPens], mult);
-
-            if (sunRes) sunList.push(sunRes);
-            if (moonRes) moonList.push(moonRes);
-            if (buffRes) buffedList.push(buffRes);
+            const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vAllPens, mult);
+            if (buffRes) {
+                candidates.push({ ...buffRes, mult: mult });
+            }
         });
 
-        // 멤버 선발
-        buffedList.sort((a, b) => b.vval - a.vval);
-        const top3Members = buffedList.slice(0, 3);
+        candidates.sort((a, b) => b.vval - a.vval);
+        const topN = candidates.slice(0, CANDIDATE_COUNT);
 
-console.group("🛡️ 길드전 최적화 배분 시스템 - 분석 로그");
-const allocationOrder = top3Members.map((member, index) => {
-    const sunData = sunList.find(p => p.dN === member.dN);
-    const moonData = moonList.find(p => p.dN === member.dN);
-    
-    const vSun = sunData ? sunData.vval : 0;
-    const vMoon = moonData ? moonData.vval : 0;
-    const gap = vSun - vMoon;
+        console.group("🛡️ 길드전 최적화 v2 - 2단계 전수탐색");
+        console.log(`%c[1단계] 가상 자원 잠재력 Top ${topN.length}명 선발 완료`, "color: #2980b9; font-weight: bold;");
+        topN.forEach((c, i) => console.log(`  ${i+1}. ${c.dN} (잠재 비벨: ${Math.floor(c.vval).toLocaleString()})`));
 
-    console.log(
-        `%c[후보 ${index + 1}] ${member.dN}`, 
-        "color: #2980b9; font-weight: bold; font-size: 12px;"
-    );
-    console.log(` - 실전(버프) 비벨: ${Math.floor(member.vval).toLocaleString()}`);
-    console.log(` - 태양 가상 비벨: ${Math.floor(vSun).toLocaleString()}`);
-    console.log(` - 달 가상 비벨:   ${Math.floor(vMoon).toLocaleString()}`);
-    console.log(` - 🚀 태양 효율(Gap): ${Math.floor(gap).toLocaleString()}`);
+        // ===== 2단계: C(N,3) × 6 순열 전수탐색 =====
+        const n = topN.length;
+        const totalCombos = n*(n-1)*(n-2)/6;
+        const totalScenarios = totalCombos * 6;
+        console.log(`%c[2단계] ${totalCombos} 조합 × 6 순열 = ${totalScenarios} 시나리오 전수탐색 시작`, "color: #e67e22; font-weight: bold;");
 
-    return { ...member, efficiencyGap: gap };
-}).sort((a, b) => b.efficiencyGap - a.efficiencyGap);
+        let bestTotalVval = -1;
+        let bestTeam = null;
+        let scenarioCount = 0;
 
-console.log("%c🏁 자원 배분 우선순위 확정:", "color: #27ae60; font-weight: bold;");
-allocationOrder.forEach((m, i) => {
-    console.log(`${i + 1}순위: ${m.dN} (Gap: ${Math.floor(m.efficiencyGap).toLocaleString()})`);
-});
-console.groupEnd();
-        // 본선 실제 할당
-        let finalTeam = [];
-        let currentPool = JSON.parse(JSON.stringify(pool));
-        let currentAccs = [...realAccs];
-        let currentPens = [...realPens];
+        for (let i = 0; i < n; i++) {
+            for (let j = i + 1; j < n; j++) {
+                for (let k = j + 1; k < n; k++) {
+                    const trio = [topN[i], topN[j], topN[k]];
 
-        for (let member of allocationOrder) {
-            const dragonObj = dragons.find(d => d.name === member.dN);
-            const finalSetting = _findBestSettingForDragon(dragonObj, currentPool, currentAccs, currentPens, member.raw.ctx.multipliers);
+                    for (const perm of PERMS_3) {
+                        const ordered = [trio[perm[0]], trio[perm[1]], trio[perm[2]]];
+                        const team = _allocateTeam(ordered, dragons, pool, realAccs, realPens, attrMap);
+                        scenarioCount++;
 
-            if (finalSetting) {
-                finalTeam.push({
-                    ...finalSetting,
-                    dA: attrMap[dragonObj.attrKey] || "",
-                    gems: { h: finalSetting.h, a: finalSetting.a, d: finalSetting.d, details: finalSetting.gemLevels }
-                });
-
-                ["h", "a", "d"].forEach(key => {
-                    const typeKr = key === "h" ? "체" : key === "a" ? "공" : "방";
-                    finalSetting.gemLevels[key].forEach(lvl => {
-                        if (currentPool[lvl][typeKr] > 0) currentPool[lvl][typeKr]--;
-                    });
-                });
-                currentAccs = currentAccs.filter(a => a.uid !== finalSetting.accUid);
-                currentPens = currentPens.filter(p => p.uid !== finalSetting.penUid);
+                        if (team.length === 3) {
+                            const totalVval = team[0].vval + team[1].vval + team[2].vval;
+                            if (totalVval > bestTotalVval) {
+                                bestTotalVval = totalVval;
+                                bestTeam = team;
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        finalTeam.sort((a, b) => b.vval - a.vval);
-        _storage.save("guild_result_state", { buffs: config, results: finalTeam });
-        return finalTeam;
+        console.log(`%c[완료] ${scenarioCount} 시나리오 탐색 완료`, "color: #27ae60; font-weight: bold;");
+        if (bestTeam) {
+            console.log(`%c최적 팀 총합 비벨: ${Math.floor(bestTotalVval).toLocaleString()}`, "color: #e74c3c; font-weight: bold; font-size: 14px;");
+            bestTeam.forEach((m, i) => console.log(`  ${i+1}. ${m.dN} → ${Math.floor(m.vval).toLocaleString()}`));
+        }
+        console.groupEnd();
+
+        if (bestTeam) {
+            bestTeam.sort((a, b) => b.vval - a.vval);
+            _storage.save("guild_result_state", { buffs: config, results: bestTeam });
+        }
+        return bestTeam || [];
     },
         loadSaved: () => _storage.load("guild_result_state")
     };
@@ -468,12 +482,11 @@ ${(res.fullLog || []).join('\n')}
         }
         if(saved.results) render(saved.results);
     }
-    if(btn) {
-        btn.addEventListener("click", function() {
-            const res = ResultEngine.run();
-            if(res.length > 0) render(res);
-            else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
-        });
-
-    }
+    if(btn) {
+        btn.addEventListener("click", function() {
+            const res = ResultEngine.run();
+            if(res.length > 0) render(res);
+            else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
+        });
+    }
 });
