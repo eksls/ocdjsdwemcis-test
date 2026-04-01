@@ -112,25 +112,62 @@ const ResultEngine = (function() {
         const base = DB.BASE_STATS[dragon.type]?.[dragon.dStat];
         if (!base) return 0;
         const spirit = _calcSpiritStats(dragon.spiritStats, dragon.spiritTypes, dragon.bonus);
+        const b0 = base[0], b1 = base[1], b2 = base[2];
+        const sp0 = spirit.plus[0], sp1 = spirit.plus[1], sp2 = spirit.plus[2];
+        const sr0 = spirit.percent[0] / 100, sr1 = spirit.percent[1] / 100, sr2 = spirit.percent[2] / 100;
+        const bh = spirit.bonus==="체" ? 40 : 0, ba = spirit.bonus==="공" ? 10 : 0, bd = spirit.bonus==="방" ? 10 : 0;
+        const mh = multipliers[0], ma = multipliers[1], md = multipliers[2];
+        const buffH = Math.trunc(b0*mh), buffA = Math.trunc(b1*ma), buffD = Math.trunc(b2*md);
+
+        // 젬 합계 사전 계산 (0~5개별) + 물약
+        const gemH = [], gemA = [], gemD = [];
+        for (let n = 0; n <= 5; n++) {
+            gemH[n] = _calcGemFast(n,"체",gemPool) + 24;
+            gemA[n] = _calcGemFast(n,"공",gemPool) + 6;
+            gemD[n] = _calcGemFast(n,"방",gemPool) + 6;
+        }
+
+        // 팬던트 옵션 사전 파싱
+        const penParsed = new Array(pens.length);
         const statIdx = { "체": 0, "공": 1, "방": 2 };
+        for (let pi = 0; pi < pens.length; pi++) {
+            const pen = pens[pi];
+            const p = [0,0,0];
+            const o1 = statIdx[pen.opt1]; if(o1!==undefined) p[o1] += parseInt(pen.stat1)||0;
+            const o2 = statIdx[pen.opt2]; if(o2!==undefined) p[o2] += parseInt(pen.stat2)||0;
+            if(pen.type==="태양") { const o3 = statIdx[pen.opt3]; if(o3!==undefined) p[o3] += parseInt(pen.stat3)||0; }
+            penParsed[pi] = p;
+        }
+
         let bestVval = 0;
         for (let ai = 0; ai < accs.length; ai++) {
             const acc = accs[ai];
-            const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value] || [0,0,0];
-            const eOpts = acc.enchant === "all" ? ["체","공","방"] : [acc.enchant];
+            const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value];
+            if (!accBase) continue;
+            const eOpts = acc.enchant === "all" ? [0,1,2] : [statIdx[acc.enchant]];
             for (let ei = 0; ei < eOpts.length; ei++) {
-                const eIdx = statIdx[eOpts[ei]];
-                const encStats = eIdx !== undefined ? [eIdx===0?21:0, eIdx===1?21:0, eIdx===2?21:0] : [0,0,0];
-                for (let pi = 0; pi < pens.length; pi++) {
-                    const pen = pens[pi];
-                    const pStats = [0,0,0];
-                    const o1 = statIdx[pen.opt1]; if(o1!==undefined) pStats[o1] += parseInt(pen.stat1)||0;
-                    const o2 = statIdx[pen.opt2]; if(o2!==undefined) pStats[o2] += parseInt(pen.stat2)||0;
-                    if(pen.type==="태양") { const o3 = statIdx[pen.opt3]; if(o3!==undefined) pStats[o3] += parseInt(pen.stat3)||0; }
-                    const ctx = { acc: accBase, enchant: encStats, pendant: pStats, multipliers };
+                const eIdx = eOpts[ei];
+                if (eIdx === undefined) continue;
+                const rH = accBase[0] + (eIdx===0?21:0);
+                const rA = accBase[1] + (eIdx===1?21:0);
+                const rD = accBase[2] + (eIdx===2?21:0);
+                for (let pi = 0; pi < penParsed.length; pi++) {
+                    const pp = penParsed[pi];
+                    const pp0 = pp[0]/100, pp1 = pp[1]/100, pp2 = pp[2]/100;
                     for (let h = 0; h <= 5; h++) {
+                        const ghv = gemH[h];
                         for (let a = 0; a <= 5-h; a++) {
-                            const v = _computeVval(base, h, a, 5-h-a, spirit, ctx, gemPool);
+                            const d = 5-h-a;
+                            let hp = b0 + ghv, atk = b1 + gemA[a], def = b2 + gemD[d];
+                            hp += Math.trunc(hp * rH / 100);
+                            atk += Math.trunc(atk * rA / 100);
+                            def += Math.trunc(def * rD / 100);
+                            hp += sp0; atk += sp1; def += sp2;
+                            hp += Math.trunc(hp * sr0); atk += Math.trunc(atk * sr1); def += Math.trunc(def * sr2);
+                            hp += bh; atk += ba; def += bd;
+                            hp += Math.trunc(hp * pp0); atk += Math.trunc(atk * pp1); def += Math.trunc(def * pp2);
+                            hp += 240 + buffH; atk += 60 + buffA; def += 60 + buffD;
+                            const v = hp * atk * def;
                             if (v > bestVval) bestVval = v;
                         }
                     }
