@@ -245,6 +245,7 @@ run: function() {
         };
 
         const maxReserve = parseInt(getV("reserve-count")) || 0;
+        const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
 
         const pool = {};
         [36, 37, 38, 39, 40].forEach((lvl, idx) => {
@@ -276,6 +277,22 @@ run: function() {
 
         const statIdx = { "체": 0, "공": 1, "방": 2 };
         const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
+
+        // 최대 자원 모드별 자원셋 (자원 종류별 선택)
+        const maxResType = getV("max-resource-type"); // "all"|"pen"|"acc"|"gem"|"pen+acc"|"pen+gem"|"acc+gem"
+        const maxPen = maxResType.includes("pen") || maxResType === "all";
+        const maxAcc = maxResType.includes("acc") || maxResType === "all";
+        const maxGem = maxResType.includes("gem") || maxResType === "all";
+
+        const useMaxResult = (maxResource === "result" || maxResource === "all");
+        const useMaxPreview = (maxResource === "preview" || maxResource === "all");
+
+        const resPool = (useMaxResult && maxGem) ? infinitePool : pool;
+        const resAccs = (useMaxResult && maxAcc) ? virtualAccs : realAccs;
+        const resPens = (useMaxResult && maxPen) ? vAllPens : realPens;
+        const prevPool = (useMaxPreview && maxGem) ? infinitePool : pool;
+        const prevAccs = (useMaxPreview && maxAcc) ? virtualAccs : realAccs;
+        const prevPens = (useMaxPreview && maxPen) ? vAllPens : realPens;
 
         // ===== 일반 용 / 예비 정령 분리 =====
         const spiritUnlock = getV("spirit-unlock"); // "off" | "typeFixed" | "all"
@@ -416,7 +433,7 @@ run: function() {
         const soloBests = topN.map(c => {
             const dragonObj = dragons.find(d => d.name === c.dN);
             if (!dragonObj) return 0;
-            const solo = _findBestSettingForDragon(dragonObj, pool, realAccs, realPens, c.mult);
+            const solo = _findBestSettingForDragon(dragonObj, resPool, resAccs, resPens, c.mult);
             return solo ? solo.vval : 0;
         });
 
@@ -441,7 +458,7 @@ run: function() {
                     const trio = [topN[i], topN[j], topN[k]];
                     for (const perm of PERMS_3) {
                         const ordered = [trio[perm[0]], trio[perm[1]], trio[perm[2]]];
-                        const team = _allocateTeam(ordered, dragons, pool, realAccs, realPens, attrMap);
+                        const team = _allocateTeam(ordered, dragons, resPool, resAccs, resPens, attrMap);
                         scenarioCount++;
 
                         if (team.length === 3) {
@@ -476,16 +493,10 @@ run: function() {
             ];
             const ALL_TYPES = ["체","공","방","체공","체방","공방"];
 
-            // 버프 프리뷰 자원 선택
-            const useMaxRes = document.getElementById("buff-preview-max")?.checked || false;
-            const prevPool = useMaxRes ? infinitePool : pool;
-            const prevAccs = useMaxRes ? virtualAccs : realAccs;
-            const prevPens = useMaxRes ? vAllPens : realPens;
-
+            // 버프 프리뷰 자원
             bestTeam.forEach(res => {
                 if ((!res.isReserve && !res.isUnlocked) || !res.raw) return;
 
-                // 원본 드래곤 객체 찾기
                 const dragonObj = dragons.find(d => d.name === res.dN);
                 if (!dragonObj) return;
 
@@ -506,7 +517,6 @@ run: function() {
                 const best2 = bestForBuffSet(BUFF_2);
                 const best1 = bestForBuffSet(BUFF_1);
 
-                // 0벞 최적 타입
                 let best0 = {type:"", vval:0};
                 typesToTry.forEach(type => {
                     const tryDragon = { ...dragonObj, type: type };
@@ -520,11 +530,11 @@ run: function() {
                     vval0: best0.vval,
                     type0: best0.type,
                     showType: res.isAllType,
-                    isMax: useMaxRes
+                    isMax: useMaxPreview
                 };
             });
 
-            _storage.save("guild_result_state", { buffs: config, results: bestTeam });
+            _storage.save("guild_result_state", { buffs: config, results: bestTeam, maxResource: maxResource });
         }
         return bestTeam || [];
     },
@@ -536,8 +546,9 @@ run: function() {
 document.addEventListener("DOMContentLoaded", function() {
     const btn = document.getElementById("calc-btn");
     
-    function render(results) {
+    function render(results, maxResource) {
         if(!results) return;
+        const isMaxResult = (maxResource === "result" || maxResource === "all");
         // 기존 결과창 초기화
         [1,2,3].forEach(i => { if(document.getElementById(`result${i}`)) document.getElementById(`result${i}`).innerHTML = ""; });
 
@@ -613,7 +624,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
 
                 <div style="text-align:center; margin:10px 0; background:#f1f8ff; padding:12px; border-radius:10px; border:1px solid #d1e9ff;">
-                    <span style="font-size:11px; color:#666;">최종 비벨 </span><br>
+                    <span style="font-size:11px; color:#666;">최종 비벨${isMaxResult ? ' <span style="color:#c0392b;">(최대자원)</span>' : ''} </span><br>
                     <b style="font-size:24px; color:#2c3e50; letter-spacing:-0.5px;">${Math.floor(res.vval || 0).toLocaleString()}</b>
                 </div>
                 ${res.buffPreview ? `
@@ -678,12 +689,12 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
-        if(saved.results) render(saved.results);
+        if(saved.results) render(saved.results, saved.maxResource);
     }
     if(btn) {
         btn.addEventListener("click", function() {
             const res = ResultEngine.run();
-            if(res.length > 0) render(res);
+            if(res.length > 0) render(res, document.getElementById("max-resource").value);
             else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
         });
     }
