@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>비벨 계산기</title>
+  <link rel="stylesheet" href="css/spirit-calc.css">
+</head>
+<body>
+
+<h1>비벨 계산기</h1>
+
+<div class="container">
+
+  <!-- 상단 좌우 영역 -->
+  <div class="top-area">
+
+    <!-- 좌측: 입력 -->
+<div class="panel input-panel">
+  <h2>정령 입력</h2>
+
+  <div class="spirit-ui">
+    <!-- 2x2 그리드 -->
+    <div class="spirit-grid">
+      <!-- 1번 -->
+      <div class="spirit-row">
+        <label></label>
+        <select class="spirit-stat">
+          <option>체</option>
+          <option>공</option>
+          <option>방</option>
+        </select>
+        <select class="spirit-type">
+          <option>%</option>
+          <option>+</option>
+        </select>
+      </div>
+
+      <!-- 2번 -->
+      <div class="spirit-row">
+        <label></label>
+        <select class="spirit-stat">
+          <option>체</option>
+          <option>공</option>
+          <option>방</option>
+        </select>
+        <select class="spirit-type">
+          <option>%</option>
+          <option>+</option>
+        </select>
+      </div>
+
+      <!-- 3번 -->
+      <div class="spirit-row">
+        <label></label>
+        <select class="spirit-stat">
+          <option>체</option>
+          <option>공</option>
+          <option>방</option>
+        </select>
+        <select class="spirit-type">
+          <option>%</option>
+          <option>+</option>
+        </select>
+      </div>
+
+      <!-- 4번 -->
+      <div class="spirit-row">
+        <label></label>
+        <select class="spirit-stat">
+          <option>체</option>
+          <option>공</option>
+          <option>방</option>
+        </select>
+        <select class="spirit-type">
+          <option>%</option>
+          <option>+</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 부가옵 -->
+    <div class="spirit-bonus">
+      <label>부가옵</label>
+      <select id="spirit-bonus">
+        <option>체</option>
+        <option>공</option>
+        <option>방</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 버프 선택 -->
+  <div class="spirit-buff">
+    <label>버프</label>
+    <select id="buffMode">
+      <option>최적화 (2벞)</option>
+      <option>1벞 최적화</option>
+      <option>체체</option>
+      <option>공공</option>
+      <option>방방</option>
+      <option>체방</option>
+      <option>체공</option>
+      <option>공방</option>
+      <option>체</option>
+      <option>공</option>
+      <option>방</option>
+      <option>버프 없음</option>
+    </select>
+  </div>
+
+  <!-- 중복 제거 체크박스 -->
+  <div class="dedupe-box">
+    <strong>중복 제거</strong>
+    <div class="dedupe-options">
+      <div class="dedupe-option">
+        <input type="checkbox" id="dedupeType">
+        <label for="dedupeType">타입</label>
+      </div>
+      <div class="dedupe-option">
+        <input type="checkbox" id="dedupeAccessory">
+        <label for="dedupeAccessory">장신구</label>
+      </div>
+      <div class="dedupe-option">
+        <input type="checkbox" id="dedupeBuff">
+        <label for="dedupeBuff">버프</label>
+      </div>
+<div class="dedupe-option">
+    <input type="checkbox" id="dedupePendant">
+    <label for="dedupePendant">팬던트</label>
+</div>
+
+    </div>
+  </div>
+
+<div class="calc-button-wrapper">
+  <button id="calcButton" onclick="runCalc()">계산</button>
+</div>
+    </div>
+    
+
+    <!-- 우측: 옵션 -->
+    <div class="panel option-panel">
+      <h2></h2>
+      <div class="option-body">
+<div class="option-columns">
+    <div class="option-left">
+        <label>용 타입</label>
+<select class="dragon-type">
+        <option>전체</option>
+    <option>체</option>
+    <option>공</option>
+    <option>방</option>
+    <option>체공</option>
+    <option>체방</option>
+    <option>공방</option>
+  </select>
+
+<label>용 스탯</label>
+<select class="dragon-stat">
+  <option value="9" selected>9.0</option>
+  <option value="8">8.0</option>
+  <option value="7">7.0</option>
+</select>
+
+<label>젬</label>
+<select class="gem-select">
+  <option value="40">40</option>
+  <option value="39">39</option>
+  <option value="38">38</option>
+  <option value="37" selected>37</option>
+  <option value="36">36</option>
+</select>
+
+      <label>장신구</label>
+<select class="accessory-select">
+        <option>20%</option>
+        <option selected>19%</option>
+        <option>18%</option>
+      </select>
+
+      <label>팬던트</label>
+<select class="pendant-select">
+        <option>달</option>
+        <option>태양</option>
+      </select>
+      </div>
+
+      <!-- 커스텀 팬던트 -->
+<div class="option-right">
+  <div class="custom-header">
+    <strong>커스텀 팬던트</strong>
+    <label>
+      <input type="checkbox" id="customPendantEnabled">
+    </label>
+  </div>
+
+  <div class="custom-pendant-row">
+
+    <!-- ① -->
+    <div class="custom-pendant">
+      <div class="num">①</div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+    </div>
+
+    <!-- ② -->
+    <div class="custom-pendant">
+      <div class="num">②</div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+    </div>
+
+    <!-- ③ -->
+    <div class="custom-pendant">
+      <div class="num">③</div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+    </div>
+
+    <!-- ④ -->
+    <div class="custom-pendant">
+      <div class="num">④</div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+      <div class="option-group">
+        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
+        <input type="number" min="0" max="18" value="0">
+      </div>
+    </div>
+  </div>
+  <!-- 최소 스탯 제한 -->
+<div class="min-stat-inline">
+  <span class="title">스탯 최솟값</span>
+
+  <label>체</label>
+  <input type="number" id="minHP" placeholder="0">
+
+  <label>공</label>
+  <input type="number" id="minATK" placeholder="0">
+
+  <label>방</label>
+  <input type="number" id="minDEF" placeholder="0">
+</div>
+
+</div>
+    </div>
+</div>
+  </div>
+  </div>
+<!-- 결과 -->
+<div class="result-area">
+  <h2>결과 (상위 200개)</h2>
+  <div class="table-wrapper">
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>타입</th>
+          <th>버프</th>
+          <th>팬던트</th>
+          <th>젬</th>
+          <th>분배</th>
+          <th>장신구</th>
+          <th>인챈</th>
+          <th>Vval (비벨)</th>
+          <th>HP</th>
+          <th>ATK</th>
+          <th>DEF</th>
+        </tr>
+      </thead>
+      <tbody id="resultBody">
+        </tbody>
+    </table>
+  </div>
+</div>
+</div>
+<script src="js/spirit-calc.js"></script>
+
+</body>
+</html>
