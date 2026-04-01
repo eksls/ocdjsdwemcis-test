@@ -490,7 +490,7 @@ run: function() {
                     typesToTry.forEach(type => {
                         buffSet.forEach(b => {
                             const tryDragon = { ...dragonObj, type: type };
-                            const r = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, b.m);
+                            const r = _findBestSettingForDragon(tryDragon, pool, realAccs, realPens, b.m);
                             if (r && r.vval > best.vval) best = {label: b.label, type: type, vval: r.vval};
                         });
                     });
@@ -504,7 +504,7 @@ run: function() {
                 let best0 = {type:"", vval:0};
                 typesToTry.forEach(type => {
                     const tryDragon = { ...dragonObj, type: type };
-                    const r = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, [0,0,0]);
+                    const r = _findBestSettingForDragon(tryDragon, pool, realAccs, realPens, [0,0,0]);
                     if (r && r.vval > best0.vval) best0 = {type: type, vval: r.vval};
                 });
 
