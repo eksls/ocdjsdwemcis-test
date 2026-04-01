@@ -476,6 +476,12 @@ run: function() {
             ];
             const ALL_TYPES = ["체","공","방","체공","체방","공방"];
 
+            // 버프 프리뷰 자원 선택
+            const useMaxRes = document.getElementById("buff-preview-max")?.checked || false;
+            const prevPool = useMaxRes ? infinitePool : pool;
+            const prevAccs = useMaxRes ? virtualAccs : realAccs;
+            const prevPens = useMaxRes ? vAllPens : realPens;
+
             bestTeam.forEach(res => {
                 if ((!res.isReserve && !res.isUnlocked) || !res.raw) return;
 
@@ -490,7 +496,7 @@ run: function() {
                     typesToTry.forEach(type => {
                         buffSet.forEach(b => {
                             const tryDragon = { ...dragonObj, type: type };
-                            const r = _findBestSettingForDragon(tryDragon, pool, realAccs, realPens, b.m);
+                            const r = _findBestSettingForDragon(tryDragon, prevPool, prevAccs, prevPens, b.m);
                             if (r && r.vval > best.vval) best = {label: b.label, type: type, vval: r.vval};
                         });
                     });
@@ -504,7 +510,7 @@ run: function() {
                 let best0 = {type:"", vval:0};
                 typesToTry.forEach(type => {
                     const tryDragon = { ...dragonObj, type: type };
-                    const r = _findBestSettingForDragon(tryDragon, pool, realAccs, realPens, [0,0,0]);
+                    const r = _findBestSettingForDragon(tryDragon, prevPool, prevAccs, prevPens, [0,0,0]);
                     if (r && r.vval > best0.vval) best0 = {type: type, vval: r.vval};
                 });
 
@@ -513,7 +519,8 @@ run: function() {
                     best1: { label: best1.label, type: best1.type, vval: best1.vval },
                     vval0: best0.vval,
                     type0: best0.type,
-                    showType: res.isAllType
+                    showType: res.isAllType,
+                    isMax: useMaxRes
                 };
             });
 
@@ -611,7 +618,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
-                    <span style="color:#e67e22; font-weight:bold;">버프 참고</span><br>
+                    <span style="color:#e67e22; font-weight:bold;">버프 참고${res.buffPreview.isMax ? ' <span style="font-size:9px; color:#c0392b;">(최대자원)</span>' : ''}</span><br>
                     2벞(${res.buffPreview.best2.label}${res.buffPreview.showType ? `, ${res.buffPreview.best2.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
                     1벞(${res.buffPreview.best1.label}${res.buffPreview.showType ? `, ${res.buffPreview.best1.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
