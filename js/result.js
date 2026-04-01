@@ -211,6 +211,7 @@ const ResultEngine = (function() {
                 dA: attrMap[dragonObj.attrKey] || "",
                 isReserve: member.isReserve || false,
                 isAllType: member.isAllType || false,
+                isUnlocked: member.isUnlocked || false,
                 gems: { h: result.h, a: result.a, d: result.d, details: result.gemLevels }
             });
 
@@ -277,7 +278,8 @@ run: function() {
         const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
 
         // ===== 일반 용 / 예비 정령 분리 =====
-        const regularDragons = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입");
+        const spiritUnlock = getV("spirit-unlock"); // "off" | "typeFixed" | "all"
+        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입");
         const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입");
         
         // 예비 정령 자동 이름 부여
@@ -290,6 +292,27 @@ run: function() {
 
         // 예비 정령 속성 = 버프 속성
         const buffAttrKey = krToAttrKey[config.b1] || null;
+
+        // 전체 정령 해제: 속성별 넘버링
+        const attrKeyToKr = attrMap;
+        let regularDragons;
+        if (spiritUnlock !== "off") {
+            // 속성별 카운터
+            const attrCounters = {};
+            regularDragons = rawRegular.map(d => {
+                const krAttr = attrKeyToKr[d.attrKey] || d.attrKey;
+                attrCounters[krAttr] = (attrCounters[krAttr] || 0) + 1;
+                const newName = `${krAttr}${attrCounters[krAttr]}`;
+                const resolvedAttrKey = buffAttrKey || d.attrKey;
+                if (spiritUnlock === "all") {
+                    return { ...d, name: newName, attrKey: resolvedAttrKey, type: "전체", _origAttr: krAttr };
+                } else {
+                    return { ...d, name: newName, attrKey: resolvedAttrKey, _origAttr: krAttr };
+                }
+            });
+        } else {
+            regularDragons = rawRegular;
+        }
 
         // dragons 배열: 일반 + 예비(타입 확정된) — _allocateTeam에서 사용
         const dragons = [...regularDragons];
@@ -309,11 +332,37 @@ run: function() {
 
         // 일반 용 평가
         regularDragons.forEach(dragon => {
-            const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
-            const mult = _calcMult(dragonAttrKr, dragon.type);
-            const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vAllPens, mult);
-            if (buffRes) {
-                candidates.push({ ...buffRes, mult, isReserve: false });
+            const dragonAttrKr = (spiritUnlock !== "off") ? (config.b1 || "") : (attrMap[dragon.attrKey] || dragon.attrKey);
+
+            if (spiritUnlock === "all" && dragon.type === "전체") {
+                // 전체 해제: 6타입 중 최고만 채택
+                let bestRes = null, bestType = "체";
+                ["체","공","방","체공","체방","공방"].forEach(tryType => {
+                    const tryDragon = { ...dragon, type: tryType };
+                    const mult = _calcMult(dragonAttrKr, tryType);
+                    const res = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
+                    if (res && (!bestRes || res.vval > bestRes.vval)) {
+                        bestRes = res;
+                        bestType = tryType;
+                        bestRes._mult = mult;
+                    }
+                });
+                if (bestRes) {
+                    dragon.type = bestType; // dragons 배열 내 타입 확정
+                    candidates.push({ ...bestRes, mult: bestRes._mult, isReserve: false, isAllType: true, isUnlocked: true });
+                }
+            } else if (spiritUnlock === "typeFixed") {
+                const mult = _calcMult(dragonAttrKr, dragon.type);
+                const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vAllPens, mult);
+                if (buffRes) {
+                    candidates.push({ ...buffRes, mult, isReserve: false, isAllType: false, isUnlocked: true });
+                }
+            } else {
+                const mult = _calcMult(dragonAttrKr, dragon.type);
+                const buffRes = _findBestSettingForDragon(dragon, infinitePool, virtualAccs, vAllPens, mult);
+                if (buffRes) {
+                    candidates.push({ ...buffRes, mult, isReserve: false });
+                }
             }
         });
 
@@ -358,7 +407,7 @@ run: function() {
 
         console.group("🛡️ 길드전 최적화 v2 - 2단계 전수탐색");
         console.log(`%c[1단계] 가상 자원 잠재력 Top ${topN.length}명 선발 완료 (예비 제한: ${maxReserve}마리)`, "color: #2980b9; font-weight: bold;");
-        topN.forEach((c, i) => console.log(`  ${i+1}. ${c.dN}${c.isReserve ? " [예비]" : ""} (잠재 비벨: ${Math.floor(c.vval).toLocaleString()})`));
+        topN.forEach((c, i) => console.log(`  ${i+1}. ${c.dN}${c.isReserve ? " [예비]" : ""}${c.isUnlocked ? " [해제]" : ""} (잠재 비벨: ${Math.floor(c.vval).toLocaleString()})`));
 
         // ===== 2단계: 상한선 가지치기 + 전수탐색 =====
         const n = topN.length;
@@ -471,7 +520,7 @@ run: function() {
             }
 
             bestTeam.forEach(res => {
-                if (!res.isReserve || !res.raw) return;
+                if ((!res.isReserve && !res.isUnlocked) || !res.raw) return;
                 const dStat = res.dS;
                 const spirit = res.raw.spirit;
                 const ctx = res.raw.ctx;
@@ -558,7 +607,7 @@ document.addEventListener("DOMContentLoaded", function() {
             // ★ 오류 수정 부분: (res.hp || 0).toLocaleString() 형태로 변경 ★
             el.innerHTML = `
             <div style="border:2px solid #007bff; padding:15px; border-radius:12px; background:#fff; text-align:left; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom:15px;">
-                <h3 style="margin:0; text-align:center; color:#2c3e50; font-size:1.2em;">${res.dN}${res.isReserve ? ' <span style="font-size:11px; color:#e67e22; background:#fef5e7; padding:1px 6px; border-radius:4px;">예비</span>' : ''}</h3>
+                <h3 style="margin:0; text-align:center; color:#2c3e50; font-size:1.2em;">${res.dN}${res.isReserve ? ' <span style="font-size:11px; color:#e67e22; background:#fef5e7; padding:1px 6px; border-radius:4px;">예비</span>' : ''}${res.isUnlocked ? ' <span style="font-size:11px; color:#8e44ad; background:#f5eef8; padding:1px 6px; border-radius:4px;">해제</span>' : ''}</h3>
                 <p style="text-align:center; font-size:12px; color:#7f8c8d; margin:5px 0;">
                     <span style="background:#f1f2f6; padding:2px 6px; border-radius:4px;">${res.dA}</span> / 
                     <span style="background:#f1f2f6; padding:2px 6px; border-radius:4px;">${res.dT}</span> / 
@@ -602,7 +651,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
-                    <span style="color:#e67e22; font-weight:bold;">예비 정령 버프 참고</span><br>
+                    <span style="color:#e67e22; font-weight:bold;">버프 참고</span><br>
                     2벞(${res.buffPreview.best2.label}${res.buffPreview.showType ? `, ${res.buffPreview.best2.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
                     1벞(${res.buffPreview.best1.label}${res.buffPreview.showType ? `, ${res.buffPreview.best1.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
