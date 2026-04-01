@@ -210,6 +210,7 @@ const ResultEngine = (function() {
                 ...result,
                 dA: attrMap[dragonObj.attrKey] || "",
                 isReserve: member.isReserve || false,
+                isAllType: member.isAllType || false,
                 gems: { h: result.h, a: result.a, d: result.d, details: result.gemLevels }
             });
 
@@ -338,7 +339,7 @@ run: function() {
                     if (bestRes) {
                         const resolved = { ...dragon, attrKey: resolvedAttrKey, type: bestType };
                         dragons.push(resolved);
-                        candidates.push({ ...bestRes, mult: bestRes._mult, isReserve: true });
+                        candidates.push({ ...bestRes, mult: bestRes._mult, isReserve: true, isAllType: true });
                     }
                 } else {
                     const resolved = { ...dragon, attrKey: resolvedAttrKey };
@@ -424,33 +425,87 @@ run: function() {
             const BUFF_1 = [
                 {label:"체", m:[0.2,0,0]}, {label:"공", m:[0,0.2,0]}, {label:"방", m:[0,0,0.2]}
             ];
+            const ALL_TYPES = ["체","공","방","체공","체방","공방"];
+
+            // 풀 재계산 함수 (타입+버프 변경 대응)
+            function _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, multipliers) {
+                const base = DB.BASE_STATS[type]?.[dStat];
+                if (!base) return 0;
+                let [hp, atk, def] = [...base];
+
+                // 젬 + 물약
+                let gH = 24, gA = 6, gD = 6;
+                (gemDetails.h || []).forEach(lvl => { gH += DB.GEM_LEVEL_STATS[lvl]["체"]; });
+                (gemDetails.a || []).forEach(lvl => { gA += DB.GEM_LEVEL_STATS[lvl]["공"]; });
+                (gemDetails.d || []).forEach(lvl => { gD += DB.GEM_LEVEL_STATS[lvl]["방"]; });
+                hp += gH; atk += gA; def += gD;
+
+                // 장신구 + 인챈트 %
+                hp += _trunc(hp * ((ctx.acc[0] + ctx.enchant[0]) / 100));
+                atk += _trunc(atk * ((ctx.acc[1] + ctx.enchant[1]) / 100));
+                def += _trunc(def * ((ctx.acc[2] + ctx.enchant[2]) / 100));
+
+                // 정령 +
+                hp += spirit.plus[0]; atk += spirit.plus[1]; def += spirit.plus[2];
+                // 정령 %
+                hp += _trunc(hp * (spirit.percent[0] / 100));
+                atk += _trunc(atk * (spirit.percent[1] / 100));
+                def += _trunc(def * (spirit.percent[2] / 100));
+                // 부가옵
+                if(spirit.bonus==="체") hp+=40; else if(spirit.bonus==="공") atk+=10; else if(spirit.bonus==="방") def+=10;
+
+                // 팬던트 %
+                hp += _trunc(hp * (ctx.pendant[0] / 100));
+                atk += _trunc(atk * (ctx.pendant[1] / 100));
+                def += _trunc(def * (ctx.pendant[2] / 100));
+
+                // 컬렉션
+                hp += 240; atk += 60; def += 60;
+
+                // 버프
+                hp += _trunc(base[0] * multipliers[0]);
+                atk += _trunc(base[1] * multipliers[1]);
+                def += _trunc(base[2] * multipliers[2]);
+
+                return hp * atk * def;
+            }
 
             bestTeam.forEach(res => {
                 if (!res.isReserve || !res.raw) return;
-                const base = res.raw.base;
-                const curM = res.raw.ctx.multipliers;
-                // 현재 버프 제거한 순수 스탯
-                const unbuffHp  = res.hp  - _trunc(base[0] * curM[0]);
-                const unbuffAtk = res.atk - _trunc(base[1] * curM[1]);
-                const unbuffDef = res.def - _trunc(base[2] * curM[2]);
+                const dStat = res.dS;
+                const spirit = res.raw.spirit;
+                const ctx = res.raw.ctx;
+                const gemDetails = res.gems?.details || res.gemLevels || {h:[],a:[],d:[]};
+                const typesToTry = res.isAllType ? ALL_TYPES : [res.dT];
 
-                function vvalWith(m) {
-                    const h = unbuffHp  + _trunc(base[0] * m[0]);
-                    const a = unbuffAtk + _trunc(base[1] * m[1]);
-                    const d = unbuffDef + _trunc(base[2] * m[2]);
-                    return h * a * d;
+                function bestForBuffSet(buffSet) {
+                    let best = {label:"", type:"", vval:0};
+                    typesToTry.forEach(type => {
+                        buffSet.forEach(b => {
+                            const v = _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, b.m);
+                            if (v > best.vval) best = {label: b.label, type: type, vval: v};
+                        });
+                    });
+                    return best;
                 }
 
-                // 2벞 최고
-                let best2 = {label:"", vval:0};
-                BUFF_2.forEach(b => { const v = vvalWith(b.m); if(v > best2.vval) best2 = {label:b.label, vval:v}; });
-                // 1벞 최고
-                let best1 = {label:"", vval:0};
-                BUFF_1.forEach(b => { const v = vvalWith(b.m); if(v > best1.vval) best1 = {label:b.label, vval:v}; });
-                // 0벞
-                const vval0 = vvalWith([0,0,0]);
+                const best2 = bestForBuffSet(BUFF_2);
+                const best1 = bestForBuffSet(BUFF_1);
 
-                res.buffPreview = { best2, best1, vval0 };
+                // 0벞 최적 타입
+                let best0 = {type:"", vval:0};
+                typesToTry.forEach(type => {
+                    const v = _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, [0,0,0]);
+                    if (v > best0.vval) best0 = {type: type, vval: v};
+                });
+
+                res.buffPreview = {
+                    best2: { label: best2.label, type: best2.type, vval: best2.vval },
+                    best1: { label: best1.label, type: best1.type, vval: best1.vval },
+                    vval0: best0.vval,
+                    type0: best0.type,
+                    showType: res.isAllType
+                };
             });
 
             _storage.save("guild_result_state", { buffs: config, results: bestTeam });
@@ -548,11 +603,11 @@ document.addEventListener("DOMContentLoaded", function() {
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
                     <span style="color:#e67e22; font-weight:bold;">예비 정령 버프 참고</span><br>
-                    2벞(${res.buffPreview.best2.label}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
+                    2벞(${res.buffPreview.best2.label}${res.buffPreview.showType ? `, ${res.buffPreview.best2.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
-                    1벞(${res.buffPreview.best1.label}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
+                    1벞(${res.buffPreview.best1.label}${res.buffPreview.showType ? `, ${res.buffPreview.best1.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
-                    0벞: <b style="color:#555;">${Math.floor(res.buffPreview.vval0 / 1000000)}M</b>
+                    0벞${res.buffPreview.showType ? `(${res.buffPreview.type0})` : ''}: <b style="color:#555;">${Math.floor(res.buffPreview.vval0 / 1000000)}M</b>
                 </div>
                 ` : ''}
 
