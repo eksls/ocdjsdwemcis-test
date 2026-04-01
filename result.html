@@ -100,7 +100,7 @@
   </div>
 </div>
 <div style="text-align: center; margin-bottom: 15px;">
-  <label style="font-weight: bold; margin-right: 8px;">예비 정령 사용:</label>
+  <label style="font-weight: bold; margin-right: 8px;">예비 정령:</label>
   <select id="reserve-count" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
     <option value="0">미사용</option>
     <option value="1">1마리</option>
@@ -108,15 +108,31 @@
     <option value="3">전부</option>
   </select>
   &nbsp;&nbsp;
-  <label style="font-weight: bold; margin-right: 8px;">전체 정령 해제:</label>
+  <label style="font-weight: bold; margin-right: 8px;">정령 해제:</label>
   <select id="spirit-unlock" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
     <option value="off">미설정</option>
     <option value="typeFixed">타입만 고정</option>
     <option value="all">전체</option>
   </select>
   &nbsp;&nbsp;
-  <label style="font-weight: bold; margin-right: 4px;">버프참고 최대자원:</label>
-  <input type="checkbox" id="buff-preview-max" style="vertical-align: middle;">
+  <label style="font-weight: bold; margin-right: 4px;">최대 자원 사용:</label>
+  <select id="max-resource" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+    <option value="off">미사용</option>
+    <option value="preview">버프참고만</option>
+    <option value="result">결과만</option>
+    <option value="all">전체</option>
+  </select>
+  &nbsp;&nbsp;
+  <label style="font-weight: bold; margin-right: 4px;">최대자원 여부:</label>
+  <select id="max-resource-type" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+    <option value="all">전체</option>
+    <option value="pen">팬던트</option>
+    <option value="acc">장신구</option>
+    <option value="gem">젬</option>
+    <option value="pen+acc">팬던트+장신구</option>
+    <option value="pen+gem">팬던트+젬</option>
+    <option value="acc+gem">장신구+젬</option>
+  </select>
 </div>
 <div style="text-align: center; margin-bottom: 30px;">
   <button id="calc-btn" style="padding: 15px 40px; font-size: 18px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 8px;">
