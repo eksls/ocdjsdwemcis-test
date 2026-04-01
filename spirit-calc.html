@@ -16,7 +16,13 @@
 
     <!-- 좌측: 입력 -->
 <div class="panel input-panel">
+<div class="spirit-header">
   <h2>정령 입력</h2>
+  <label class="spirit-toggle">
+    <input type="checkbox" id="spiritDisabled"> 
+    <span>사용 안 함</span>
+  </label>
+</div>
 
   <div class="spirit-ui">
     <!-- 2x2 그리드 -->
@@ -189,93 +195,24 @@
 <div class="option-right">
   <div class="custom-header">
     <strong>커스텀 팬던트</strong>
-    <label>
-      <input type="checkbox" id="customPendantEnabled">
-    </label>
-  </div>
-
-  <div class="custom-pendant-row">
-
-    <!-- ① -->
-    <div class="custom-pendant">
-      <div class="num">①</div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-    </div>
-
-    <!-- ② -->
-    <div class="custom-pendant">
-      <div class="num">②</div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-    </div>
-
-    <!-- ③ -->
-    <div class="custom-pendant">
-      <div class="num">③</div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-    </div>
-
-    <!-- ④ -->
-    <div class="custom-pendant">
-      <div class="num">④</div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
-      <div class="option-group">
-        <select><option>선택</option><option>체력</option><option>공격</option><option>방어</option></select>
-        <input type="number" min="0" max="18" value="0">
-      </div>
+    <label><input type="checkbox" id="customPendantEnabled"></label>
+    <div class="custom-controls">
+      <button type="button" id="btnAddPendant" onclick="addPendant()" disabled>추가</button>
+      <button type="button" id="btnRemovePendant" onclick="removePendant()" disabled>제거</button>
     </div>
   </div>
-  <!-- 최소 스탯 제한 -->
+
+  <div class="custom-pendant-container" id="pendantContainer">
+    </div>
+
 <div class="min-stat-inline">
-  <span class="title">스탯 최솟값</span>
-
-  <label>체</label>
-  <input type="number" id="minHP" placeholder="0">
-
-  <label>공</label>
-  <input type="number" id="minATK" placeholder="0">
-
-  <label>방</label>
-  <input type="number" id="minDEF" placeholder="0">
+    <span class="title">스탯 최솟값</span>
+    <div class="min-inputs">
+      <label>체</label><input type="number" id="minHP" placeholder="0">
+      <label>공</label><input type="number" id="minATK" placeholder="0">
+      <label>방</label><input type="number" id="minDEF" placeholder="0">
+    </div>
+  </div>
 </div>
 
 </div>
