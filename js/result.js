@@ -257,7 +257,7 @@ run: function() {
         const realPens = (gear.pendants || []).filter(p => p.type !== "선택" && p.type !== "off").map((p, i) => ({ ...p, uid: `pen_${i}` }));
 
         const virtualAccs = ["황보", "여보", "악보", "물뿔(체/공)", "물뿔(체/방)", "불뿔(공/체)", "불뿔(공/방)", "대뿔(방/체)", "대뿔(방/공)", "바뿔(공/체)", "바뿔(공/방)", "바뿔(체/방)"]
-            .map(name => ({ item: name, value: 19, enchant: "all", uid: "v_acc" }));
+            .map((name, i) => ({ item: name, value: 19, enchant: "all", uid: `v_acc_${i}` }));
 
         const vAllPens = [
             { type: "태양", opt1: "체", stat1: 6, opt2: "공", stat2: 6, opt3: "방", stat3: 6 },
@@ -273,7 +273,7 @@ run: function() {
             { type: "달", opt1: "체", stat1: 6, opt2: "공", stat2: 6 },
             { type: "달", opt1: "체", stat1: 6, opt2: "방", stat2: 6 },
             { type: "달", opt1: "공", stat1: 6, opt2: "방", stat2: 6 }
-        ].map(p => ({ ...p, uid: "v_pen" }));
+        ].map((p, i) => ({ ...p, uid: `v_pen_${i}` }));
 
         const statIdx = { "체": 0, "공": 1, "방": 2 };
         const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
