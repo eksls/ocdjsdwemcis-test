@@ -530,11 +530,12 @@ run: function() {
                     vval0: best0.vval,
                     type0: best0.type,
                     showType: res.isAllType,
-                    isMax: useMaxPreview
+                    isMax: useMaxPreview,
+                    maxResType: maxResType
                 };
             });
 
-            _storage.save("guild_result_state", { buffs: config, results: bestTeam, maxResource: maxResource });
+            _storage.save("guild_result_state", { buffs: config, results: bestTeam, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock });
         }
         return bestTeam || [];
     },
@@ -546,9 +547,11 @@ run: function() {
 document.addEventListener("DOMContentLoaded", function() {
     const btn = document.getElementById("calc-btn");
     
-    function render(results, maxResource) {
+    function render(results, maxResource, maxResType) {
         if(!results) return;
         const isMaxResult = (maxResource === "result" || maxResource === "all");
+        const maxResLabel = {"all":"","pen":"팬던트","acc":"장신구","gem":"젬","pen+acc":"팬던트+장신구","pen+gem":"팬던트+젬","acc+gem":"장신구+젬"};
+        const resTypeTag = (type) => (!type || type === "all") ? "" : ": " + (maxResLabel[type] || type);
         // 기존 결과창 초기화
         [1,2,3].forEach(i => { if(document.getElementById(`result${i}`)) document.getElementById(`result${i}`).innerHTML = ""; });
 
@@ -624,12 +627,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
 
                 <div style="text-align:center; margin:10px 0; background:#f1f8ff; padding:12px; border-radius:10px; border:1px solid #d1e9ff;">
-                    <span style="font-size:11px; color:#666;">최종 비벨${isMaxResult ? ' <span style="color:#c0392b;">(최대자원)</span>' : ''} </span><br>
+                    <span style="font-size:11px; color:#666;">최종 비벨${isMaxResult ? ' <span style="color:#c0392b;">(최대자원${resTypeTag(maxResType)})</span>' : ''} </span><br>
                     <b style="font-size:24px; color:#2c3e50; letter-spacing:-0.5px;">${Math.floor(res.vval || 0).toLocaleString()}</b>
                 </div>
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
-                    <span style="color:#e67e22; font-weight:bold;">버프 참고${res.buffPreview.isMax ? ' <span style="font-size:9px; color:#c0392b;">(최대자원)</span>' : ''}</span><br>
+                    <span style="color:#e67e22; font-weight:bold;">버프 참고${res.buffPreview.isMax ? ' <span style="font-size:9px; color:#c0392b;">(최대자원${resTypeTag(maxResType)})</span>' : ''}</span><br>
                     2벞(${res.buffPreview.best2.label}${res.buffPreview.showType ? `, ${res.buffPreview.best2.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
                     1벞(${res.buffPreview.best1.label}${res.buffPreview.showType ? `, ${res.buffPreview.best1.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
@@ -689,12 +692,16 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
-        if(saved.results) render(saved.results, saved.maxResource);
+        if(saved.reserveCount !== undefined && document.getElementById("reserve-count")) document.getElementById("reserve-count").value = saved.reserveCount;
+        if(saved.spiritUnlock && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
+        if(saved.maxResource && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
+        if(saved.maxResType && document.getElementById("max-resource-type")) document.getElementById("max-resource-type").value = saved.maxResType;
+        if(saved.results) render(saved.results, saved.maxResource, saved.maxResType);
     }
     if(btn) {
         btn.addEventListener("click", function() {
             const res = ResultEngine.run();
-            if(res.length > 0) render(res, document.getElementById("max-resource").value);
+            if(res.length > 0) render(res, document.getElementById("max-resource").value, document.getElementById("max-resource-type").value);
             else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
         });
     }
