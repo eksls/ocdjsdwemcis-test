@@ -466,7 +466,7 @@ run: function() {
         if (bestTeam) {
             bestTeam.sort((a, b) => b.vval - a.vval);
 
-            // ★ 예비 정령 버프 프리뷰 계산
+            // ★ 예비/해제 정령 버프 프리뷰 계산 (장비도 재최적화)
             const BUFF_2 = [
                 {label:"체/체", m:[0.4,0,0]}, {label:"공/공", m:[0,0.4,0]}, {label:"방/방", m:[0,0,0.4]},
                 {label:"체/공", m:[0.2,0.2,0]}, {label:"체/방", m:[0.2,0,0.2]}, {label:"공/방", m:[0,0.2,0.2]}
@@ -476,63 +476,22 @@ run: function() {
             ];
             const ALL_TYPES = ["체","공","방","체공","체방","공방"];
 
-            // 풀 재계산 함수 (타입+버프 변경 대응)
-            function _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, multipliers) {
-                const base = DB.BASE_STATS[type]?.[dStat];
-                if (!base) return 0;
-                let [hp, atk, def] = [...base];
-
-                // 젬 + 물약
-                let gH = 24, gA = 6, gD = 6;
-                (gemDetails.h || []).forEach(lvl => { gH += DB.GEM_LEVEL_STATS[lvl]["체"]; });
-                (gemDetails.a || []).forEach(lvl => { gA += DB.GEM_LEVEL_STATS[lvl]["공"]; });
-                (gemDetails.d || []).forEach(lvl => { gD += DB.GEM_LEVEL_STATS[lvl]["방"]; });
-                hp += gH; atk += gA; def += gD;
-
-                // 장신구 + 인챈트 %
-                hp += _trunc(hp * ((ctx.acc[0] + ctx.enchant[0]) / 100));
-                atk += _trunc(atk * ((ctx.acc[1] + ctx.enchant[1]) / 100));
-                def += _trunc(def * ((ctx.acc[2] + ctx.enchant[2]) / 100));
-
-                // 정령 +
-                hp += spirit.plus[0]; atk += spirit.plus[1]; def += spirit.plus[2];
-                // 정령 %
-                hp += _trunc(hp * (spirit.percent[0] / 100));
-                atk += _trunc(atk * (spirit.percent[1] / 100));
-                def += _trunc(def * (spirit.percent[2] / 100));
-                // 부가옵
-                if(spirit.bonus==="체") hp+=40; else if(spirit.bonus==="공") atk+=10; else if(spirit.bonus==="방") def+=10;
-
-                // 팬던트 %
-                hp += _trunc(hp * (ctx.pendant[0] / 100));
-                atk += _trunc(atk * (ctx.pendant[1] / 100));
-                def += _trunc(def * (ctx.pendant[2] / 100));
-
-                // 컬렉션
-                hp += 240; atk += 60; def += 60;
-
-                // 버프
-                hp += _trunc(base[0] * multipliers[0]);
-                atk += _trunc(base[1] * multipliers[1]);
-                def += _trunc(base[2] * multipliers[2]);
-
-                return hp * atk * def;
-            }
-
             bestTeam.forEach(res => {
                 if ((!res.isReserve && !res.isUnlocked) || !res.raw) return;
-                const dStat = res.dS;
-                const spirit = res.raw.spirit;
-                const ctx = res.raw.ctx;
-                const gemDetails = res.gems?.details || res.gemLevels || {h:[],a:[],d:[]};
+
+                // 원본 드래곤 객체 찾기
+                const dragonObj = dragons.find(d => d.name === res.dN);
+                if (!dragonObj) return;
+
                 const typesToTry = res.isAllType ? ALL_TYPES : [res.dT];
 
                 function bestForBuffSet(buffSet) {
                     let best = {label:"", type:"", vval:0};
                     typesToTry.forEach(type => {
                         buffSet.forEach(b => {
-                            const v = _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, b.m);
-                            if (v > best.vval) best = {label: b.label, type: type, vval: v};
+                            const tryDragon = { ...dragonObj, type: type };
+                            const r = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, b.m);
+                            if (r && r.vval > best.vval) best = {label: b.label, type: type, vval: r.vval};
                         });
                     });
                     return best;
@@ -544,8 +503,9 @@ run: function() {
                 // 0벞 최적 타입
                 let best0 = {type:"", vval:0};
                 typesToTry.forEach(type => {
-                    const v = _fullRecalcVval(type, dStat, gemDetails, spirit, ctx, [0,0,0]);
-                    if (v > best0.vval) best0 = {type: type, vval: v};
+                    const tryDragon = { ...dragonObj, type: type };
+                    const r = _findBestSettingForDragon(tryDragon, infinitePool, virtualAccs, vAllPens, [0,0,0]);
+                    if (r && r.vval > best0.vval) best0 = {type: type, vval: r.vval};
                 });
 
                 res.buffPreview = {
