@@ -609,6 +609,9 @@ document.addEventListener("DOMContentLoaded", function() {
             const el = document.getElementById(`result${i+1}`);
             if(!el) return;
 
+            const maxResTag = isMaxResult ? `(최대자원${resTypeTag(maxResType)})` : "";
+            const prevResTag = (res.buffPreview && res.buffPreview.isMax) ? `(최대자원${resTypeTag(res.buffPreview.maxResType)})` : "";
+
             const getEnchantColor = (enchant) => {
                 switch(enchant) {
                     case "체": return "#2980b9"; // 파란색
@@ -677,12 +680,12 @@ document.addEventListener("DOMContentLoaded", function() {
                 </div>
 
                 <div style="text-align:center; margin:10px 0; background:#f1f8ff; padding:12px; border-radius:10px; border:1px solid #d1e9ff;">
-                    <span style="font-size:11px; color:#666;">최종 비벨${isMaxResult ? ' <span style="color:#c0392b;">(최대자원${resTypeTag(maxResType)})</span>' : ''} </span><br>
+                    <span style="font-size:11px; color:#666;">최종 비벨${maxResTag ? ` <span style="color:#c0392b;">${maxResTag}</span>` : ''} </span><br>
                     <b style="font-size:24px; color:#2c3e50; letter-spacing:-0.5px;">${Math.floor(res.vval || 0).toLocaleString()}</b>
                 </div>
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
-                    <span style="color:#e67e22; font-weight:bold;">버프 참고${res.buffPreview.isMax ? ' <span style="font-size:9px; color:#c0392b;">(최대자원${resTypeTag(maxResType)})</span>' : ''}</span><br>
+                    <span style="color:#e67e22; font-weight:bold;">버프 참고${prevResTag ? ` <span style="font-size:9px; color:#c0392b;">${prevResTag}</span>` : ''}</span><br>
                     2벞(${res.buffPreview.best2.label}${res.buffPreview.showType ? `, ${res.buffPreview.best2.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
                     &nbsp;|&nbsp;
                     1벞(${res.buffPreview.best1.label}${res.buffPreview.showType ? `, ${res.buffPreview.best1.type}` : ''}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
