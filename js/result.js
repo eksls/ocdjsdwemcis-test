@@ -415,6 +415,44 @@ run: function() {
 
         if (bestTeam) {
             bestTeam.sort((a, b) => b.vval - a.vval);
+
+            // ★ 예비 정령 버프 프리뷰 계산
+            const BUFF_2 = [
+                {label:"체/체", m:[0.4,0,0]}, {label:"공/공", m:[0,0.4,0]}, {label:"방/방", m:[0,0,0.4]},
+                {label:"체/공", m:[0.2,0.2,0]}, {label:"체/방", m:[0.2,0,0.2]}, {label:"공/방", m:[0,0.2,0.2]}
+            ];
+            const BUFF_1 = [
+                {label:"체", m:[0.2,0,0]}, {label:"공", m:[0,0.2,0]}, {label:"방", m:[0,0,0.2]}
+            ];
+
+            bestTeam.forEach(res => {
+                if (!res.isReserve || !res.raw) return;
+                const base = res.raw.base;
+                const curM = res.raw.ctx.multipliers;
+                // 현재 버프 제거한 순수 스탯
+                const unbuffHp  = res.hp  - _trunc(base[0] * curM[0]);
+                const unbuffAtk = res.atk - _trunc(base[1] * curM[1]);
+                const unbuffDef = res.def - _trunc(base[2] * curM[2]);
+
+                function vvalWith(m) {
+                    const h = unbuffHp  + _trunc(base[0] * m[0]);
+                    const a = unbuffAtk + _trunc(base[1] * m[1]);
+                    const d = unbuffDef + _trunc(base[2] * m[2]);
+                    return h * a * d;
+                }
+
+                // 2벞 최고
+                let best2 = {label:"", vval:0};
+                BUFF_2.forEach(b => { const v = vvalWith(b.m); if(v > best2.vval) best2 = {label:b.label, vval:v}; });
+                // 1벞 최고
+                let best1 = {label:"", vval:0};
+                BUFF_1.forEach(b => { const v = vvalWith(b.m); if(v > best1.vval) best1 = {label:b.label, vval:v}; });
+                // 0벞
+                const vval0 = vvalWith([0,0,0]);
+
+                res.buffPreview = { best2, best1, vval0 };
+            });
+
             _storage.save("guild_result_state", { buffs: config, results: bestTeam });
         }
         return bestTeam || [];
@@ -507,6 +545,16 @@ document.addEventListener("DOMContentLoaded", function() {
                     <span style="font-size:11px; color:#666;">최종 비벨 </span><br>
                     <b style="font-size:24px; color:#2c3e50; letter-spacing:-0.5px;">${Math.floor(res.vval || 0).toLocaleString()}</b>
                 </div>
+                ${res.buffPreview ? `
+                <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
+                    <span style="color:#e67e22; font-weight:bold;">예비 정령 버프 참고</span><br>
+                    2벞(${res.buffPreview.best2.label}): <b style="color:#555;">${Math.floor(res.buffPreview.best2.vval / 1000000)}M</b>
+                    &nbsp;|&nbsp;
+                    1벞(${res.buffPreview.best1.label}): <b style="color:#555;">${Math.floor(res.buffPreview.best1.vval / 1000000)}M</b>
+                    &nbsp;|&nbsp;
+                    0벞: <b style="color:#555;">${Math.floor(res.buffPreview.vval0 / 1000000)}M</b>
+                </div>
+                ` : ''}
 
                 <details style="display:none; font-size:11px; color:#444; background:#f9f9f9; padding:10px; border-radius:8px; border:1px solid #eee;">
                     <summary style="cursor:pointer; font-weight:bold; color:#7f8c8d;">🔍 단계별 계산 로그 확인</summary>
