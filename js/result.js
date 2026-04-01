@@ -535,8 +535,15 @@ run: function() {
                 };
             });
 
-            _storage.save("guild_result_state", { buffs: config, results: bestTeam, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock });
         }
+
+        // ★ 설정은 결과 유무와 관계없이 항상 저장
+        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock };
+        if (bestTeam) {
+            saveData.results = bestTeam;
+        }
+        _storage.save("guild_result_state", saveData);
+
         return bestTeam || [];
     },
         loadSaved: () => _storage.load("guild_result_state")
@@ -693,9 +700,9 @@ ${(res.fullLog || []).join('\n')}
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
         if(saved.reserveCount !== undefined && document.getElementById("reserve-count")) document.getElementById("reserve-count").value = saved.reserveCount;
-        if(saved.spiritUnlock && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
-        if(saved.maxResource && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
-        if(saved.maxResType && document.getElementById("max-resource-type")) document.getElementById("max-resource-type").value = saved.maxResType;
+        if(saved.spiritUnlock !== undefined && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
+        if(saved.maxResource !== undefined && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
+        if(saved.maxResType !== undefined && document.getElementById("max-resource-type")) document.getElementById("max-resource-type").value = saved.maxResType;
         if(saved.results) render(saved.results, saved.maxResource, saved.maxResType);
     }
     if(btn) {
