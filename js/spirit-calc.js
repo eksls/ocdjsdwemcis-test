@@ -7,7 +7,86 @@ function log(msg){
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("calcButton").addEventListener("click", runCalc);
 });
+document.getElementById("spiritDisabled").addEventListener("change", (e) => {
+    const spiritUI = document.querySelector(".spirit-ui");
+    if (e.target.checked) {
+        spiritUI.classList.add("disabled");
+    } else {
+        spiritUI.classList.remove("disabled");
+    }
+});
 
+// 1. 체크박스에 따른 컨트롤 활성화 로직
+document.getElementById("customPendantEnabled").addEventListener("change", function(e) {
+    const isEnabled = e.target.checked;
+    
+    // 버튼 비활성화 제어
+    document.getElementById("btnAddPendant").disabled = !isEnabled;
+    document.getElementById("btnRemovePendant").disabled = !isEnabled;
+    
+    // 컨테이너 시각적 비활성화
+    const container = document.getElementById("pendantContainer");
+    if (isEnabled) {
+        container.classList.remove("disabled-ui");
+    } else {
+        container.classList.add("disabled-ui");
+    }
+});
+
+// 2. 팬던트 추가 함수 (원문자 포함)
+function addPendant() {
+    const container = document.getElementById("pendantContainer");
+    const currentCount = container.querySelectorAll(".custom-pendant").length;
+
+    if (currentCount >= 16) {
+        alert("최대 16개까지만 추가 가능합니다.");
+        return;
+    }
+
+    const pendantDiv = document.createElement("div");
+    pendantDiv.className = "custom-pendant";
+    
+    // 원문자 배열 (1~16)
+    const circles = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫","⑬","⑭","⑮","⑯"];
+    const numLabel = circles[currentCount] || (currentCount + 1);
+
+    pendantDiv.innerHTML = `
+        <div class="num">${numLabel}</div>
+        ${[1, 2, 3].map(() => `
+            <div class="option-group">
+                <select>
+                    <option>선택</option>
+                    <option>체력</option>
+                    <option>공격</option>
+                    <option>방어</option>
+                </select>
+                <input type="number" min="0" max="18" value="0">
+            </div>
+        `).join('')}
+    `;
+    
+    container.appendChild(pendantDiv);
+    container.scrollTop = container.scrollHeight; // 추가 시 스크롤 아래로
+}
+
+// 3. 팬던트 제거 함수
+function removePendant() {
+    const container = document.getElementById("pendantContainer");
+    const pendants = container.querySelectorAll(".custom-pendant");
+    if (pendants.length > 1) {
+        container.removeChild(pendants[pendants.length - 1]);
+    } else {
+        alert("최소 1개는 유지해야 합니다.");
+    }
+}
+
+// 초기 로드 시 실행
+document.addEventListener("DOMContentLoaded", () => {
+    // 이미 HTML에 1개가 그려져 있지 않다면 실행
+    if (document.getElementById("pendantContainer").children.length === 0) {
+        addPendant();
+    }
+});
 // ===========================
 // 1️⃣ 스탯 테이블
 // ===========================
@@ -345,41 +424,37 @@ log.push(`장신구+인챈트 적용 → 체${base체}, 공${base공}, 방${base
 
 
     // 4️⃣ 정령 적용 (+/%)
-const spiritStat = calcSpiritStats(spirit);
-log.push(
-  `정령 입력: ` +
-  spirit.stats.map((s,i)=>`${s}${spirit.types[i]}`).join(", ") +
-  ` / 부가옵: ${spirit.bonus}`
-);
+const isSpiritDisabled = document.getElementById("spiritDisabled")?.checked;
 
-log.push(
-  `정령 + → 체+${spiritStat.plus[0]}, 공+${spiritStat.plus[1]}, 방+${spiritStat.plus[2]}`
-);
+// 체크되었으면 모든 값을 0으로, 아니면 원래 계산식 적용
+const spiritStat = isSpiritDisabled 
+    ? { plus: [0, 0, 0], percent: [0, 0, 0] } 
+    : calcSpiritStats(spirit);
 
-log.push(
-  `정령 % → 체${spiritStat.percent[0]}%, 공${spiritStat.percent[1]}%, 방${spiritStat.percent[2]}%`
-);
+if (isSpiritDisabled) {
+    log.push("정령 사용 안 함 (스탯 반영 제외)");
+} else {
+    log.push(`정령 입력: ${spirit.stats.map((s,i)=>`${s}${spirit.types[i]}`).join(", ")} / 부가옵: ${spirit.bonus}`);
+    log.push(`정령 + → 체+${spiritStat.plus[0]}, 공+${spiritStat.plus[1]}, 방+${spiritStat.plus[2]}`);
+    log.push(`정령 % → 체${spiritStat.percent[0]}%, 공${spiritStat.percent[1]}%, 방${spiritStat.percent[2]}%`);
+}
 
-
-// 3️⃣ 결과 + (정령 +)
+// 스탯 합산 부분
 base체 += spiritStat.plus[0];
 base공 += spiritStat.plus[1];
 base방 += spiritStat.plus[2];
-log.push(`정령 + 적용 → 체${base체}, 공${base공}, 방${base방}`);
-// 4️⃣ 결과 x (100% + 정령%)
+
 base체 = Math.floor(base체 * (1 + spiritStat.percent[0]/100));
 base공 = Math.floor(base공 * (1 + spiritStat.percent[1]/100));
 base방 = Math.floor(base방 * (1 + spiritStat.percent[2]/100));
-log.push(`정령 % 적용 → 체${base체}, 공${base공}, 방${base방}`);
 
-// 정령 % 적용 이후
-if(spirit.bonus==="체") base체 += 40;
-if(spirit.bonus==="공") base공 += 10;
-if(spirit.bonus==="방") base방 += 10;
-
-log.push(`정령 부가옵 적용 → 체${base체}, 공${base공}, 방${base방}`);
-
-
+// 정령 부가옵션 (체40, 공10, 방10) - 체크 안 되었을 때만 적용
+if (!isSpiritDisabled) {
+    if(spirit.bonus==="체") base체 += 40;
+    if(spirit.bonus==="공") base공 += 10;
+    if(spirit.bonus==="방") base방 += 10;
+    log.push(`정령 부가옵 적용 → 체${base체}, 공${base공}, 방${base방}`);
+}
     // 5️⃣ 팬던트 적용 (%)
 log.push(
   `팬던트 선택: ${combo.pendant} ` +
@@ -544,6 +619,7 @@ function formatRow(b){
         center(b.stats.def, COL.def)
     ].join(" | ");
 }
+
 
 // ===========================
 // 6️⃣ 실행
