@@ -87,7 +87,7 @@ function calcVvalFast(combo, spiritStat, bonus) {
     const bs = bMap[combo.buff] || [];
     const base = dragonBaseStats[combo.type][combo.stat];
     bs.forEach(b => { if(b==="체") hp+=Math.floor(base[0]*0.2); if(b==="공") atk+=Math.floor(base[1]*0.2); if(b==="방") def+=Math.floor(base[2]*0.2); });
-    return { hp, atk, def, Vval: hp*atk*def };
+    return { stats: { hp, atk, def }, Vval: hp*atk*def };
 }
 
 // 1. 체크박스에 따른 컨트롤 활성화 로직
@@ -734,7 +734,7 @@ function runCalc(){
                     results.push({
                         ...c,
                         Vval: bestVval,
-                        stats: bestStats,
+                        stats: bestStats.stats,
                         spiritLabel: bestSpirit.label,
                         spiritKey: `${bestSpirit.plus}|${bestSpirit.percent}|${bestSpirit.bonus}`
                     });
