@@ -437,6 +437,7 @@ function formatGems(g){
 
 
 function passMinStat(result, min){
+    if(!result || !result.stats) return false;
     return (
         result.stats.hp  >= min.hp &&
         result.stats.atk >= min.atk &&
