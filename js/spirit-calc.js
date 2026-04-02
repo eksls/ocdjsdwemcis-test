@@ -9,12 +9,86 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 document.getElementById("spiritDisabled").addEventListener("change", (e) => {
     const spiritUI = document.querySelector(".spirit-ui");
+    const spiritOpt = document.getElementById("spiritOptimize");
     if (e.target.checked) {
         spiritUI.classList.add("disabled");
+        spiritOpt.disabled = false;
     } else {
         spiritUI.classList.remove("disabled");
+        spiritOpt.checked = false;
+        spiritOpt.disabled = true;
     }
 });
+
+// ===========================
+// 정령 전체 조합 사전 생성
+// ===========================
+function generateAllSpiritCombos() {
+    const stats = ["체","공","방"];
+    const types = ["%","+"];
+    const bonuses = ["체","공","방"];
+    const percentMap = [24,28,32,40];
+    const plusMap = [54,60,66,120];
+    const seen = new Map();
+    const result = [];
+
+    for (let s0 = 0; s0 < 3; s0++)
+    for (let t0 = 0; t0 < 2; t0++)
+    for (let s1 = 0; s1 < 3; s1++)
+    for (let t1 = 0; t1 < 2; t1++)
+    for (let s2 = 0; s2 < 3; s2++)
+    for (let t2 = 0; t2 < 2; t2++)
+    for (let s3 = 0; s3 < 3; s3++)
+    for (let t3 = 0; t3 < 2; t3++)
+    for (let bi = 0; bi < 3; bi++) {
+        const plus = [0,0,0], percent = [0,0,0];
+        const slots = [[s0,t0],[s1,t1],[s2,t2],[s3,t3]];
+        const slotStats = [stats[s0],stats[s1],stats[s2],stats[s3]];
+        const slotTypes = [types[t0],types[t1],types[t2],types[t3]];
+        for (let i = 0; i < 4; i++) {
+            const idx = slots[i][0];
+            if (slots[i][1] === 0) { percent[idx] += percentMap[i]; }
+            else { let v = plusMap[i]; if (idx === 0) v *= 4; plus[idx] += v; }
+        }
+        const bonus = bonuses[bi];
+        const key = `${plus}|${percent}|${bonus}`;
+        if (!seen.has(key)) {
+            seen.set(key, true);
+            result.push({ plus, percent, bonus, label: slotStats.map((s,i)=>`${s}${slotTypes[i]}`).join(" ")+` 부:${bonus}` });
+        }
+    }
+    return result;
+}
+
+const ALL_SPIRIT_COMBOS = generateAllSpiritCombos();
+console.log(`정령 고유 조합: ${ALL_SPIRIT_COMBOS.length}개`);
+
+// 고속 Vval 계산 (정령 최적화용, 로그 없음)
+function calcVvalFast(combo, spiritStat, bonus) {
+    let [hp, atk, def] = dragonBaseStats[combo.type][combo.stat];
+    const lvl = combo.gemLevel;
+    hp += gemStats.체[lvl] * combo.gems.체 + potion[0];
+    atk += gemStats.공[lvl] * combo.gems.공 + potion[1];
+    def += gemStats.방[lvl] * combo.gems.방 + potion[2];
+    const aP = combo.accessoryOpt, eP = combo.enchantOpt;
+    hp = Math.floor(hp * (1 + (aP[0]+eP[0])/100));
+    atk = Math.floor(atk * (1 + (aP[1]+eP[1])/100));
+    def = Math.floor(def * (1 + (aP[2]+eP[2])/100));
+    hp += spiritStat.plus[0]; atk += spiritStat.plus[1]; def += spiritStat.plus[2];
+    hp = Math.floor(hp * (1 + spiritStat.percent[0]/100));
+    atk = Math.floor(atk * (1 + spiritStat.percent[1]/100));
+    def = Math.floor(def * (1 + spiritStat.percent[2]/100));
+    if(bonus==="체") hp+=40; else if(bonus==="공") atk+=10; else if(bonus==="방") def+=10;
+    hp = Math.floor(hp * (1 + combo.pendantOpt[0]/100));
+    atk = Math.floor(atk * (1 + combo.pendantOpt[1]/100));
+    def = Math.floor(def * (1 + combo.pendantOpt[2]/100));
+    hp += 240; atk += 60; def += 60;
+    const bMap = {"체체":["체","체"],"공공":["공","공"],"방방":["방","방"],"체공":["체","공"],"체방":["체","방"],"공방":["공","방"],"체":["체"],"공":["공"],"방":["방"],"버프 없음":[]};
+    const bs = bMap[combo.buff] || [];
+    const base = dragonBaseStats[combo.type][combo.stat];
+    bs.forEach(b => { if(b==="체") hp+=Math.floor(base[0]*0.2); if(b==="공") atk+=Math.floor(base[1]*0.2); if(b==="방") def+=Math.floor(base[2]*0.2); });
+    return { hp, atk, def, Vval: hp*atk*def };
+}
 
 // 1. 체크박스에 따른 컨트롤 활성화 로직
 document.getElementById("customPendantEnabled").addEventListener("change", function(e) {
@@ -520,6 +594,7 @@ function dedupeResults(results, options) {
     if (options.pendant) keys.push("pendantOpt"); 
     
     if (options.accessory) keys.push("accessoryOpt");
+    if (options.spirit) keys.push("spiritKey");
 
     if (keys.length === 0) return results;
 
@@ -627,14 +702,50 @@ function formatRow(b){
 function runCalc(){
     try {
         const spirit = getSpiritFromUI();
+        const spiritOptOn = document.getElementById("spiritOptimize")?.checked && document.getElementById("spiritDisabled")?.checked;
         const optionPool = gatherOptions(document.getElementById("customPendantEnabled").checked);
-        const results = [];
         const minStats = getMinStats();
+        let results = [];
 
-        optionPool.forEach((c) => {
-            const r = calcVval(c, spirit);
-            if(passMinStat(r, minStats)) results.push({...c, ...r});
-        });
+        if (spiritOptOn) {
+            // 1단계: 정령 없이 계산 → Top 1000
+            const zeroSpirit = { stats:["체","체","체","체"], types:["%","%","%","%"], bonus:"체" };
+            optionPool.forEach(c => {
+                const r = calcVval(c, zeroSpirit);
+                results.push({...c, ...r});
+            });
+            results.sort((a,b) => b.Vval - a.Vval);
+            const top1000 = results.slice(0, 1000);
+
+            // 2단계: Top 1000에서 최적 정령 탐색
+            results = [];
+            top1000.forEach(c => {
+                let bestVval = 0, bestSpirit = null, bestStats = null;
+                for (let si = 0; si < ALL_SPIRIT_COMBOS.length; si++) {
+                    const sp = ALL_SPIRIT_COMBOS[si];
+                    const r = calcVvalFast(c, sp, sp.bonus);
+                    if (r.Vval > bestVval) {
+                        bestVval = r.Vval;
+                        bestSpirit = sp;
+                        bestStats = r;
+                    }
+                }
+                if (bestSpirit && passMinStat(bestStats, minStats)) {
+                    results.push({
+                        ...c,
+                        Vval: bestVval,
+                        stats: bestStats,
+                        spiritLabel: bestSpirit.label,
+                        spiritKey: `${bestSpirit.plus}|${bestSpirit.percent}|${bestSpirit.bonus}`
+                    });
+                }
+            });
+        } else {
+            optionPool.forEach((c) => {
+                const r = calcVval(c, spirit);
+                if(passMinStat(r, minStats)) results.push({...c, ...r});
+            });
+        }
 
         if(results.length === 0) throw new Error("조건에 맞는 결과가 없습니다.");
 
@@ -642,36 +753,46 @@ function runCalc(){
             type: document.getElementById("dedupeType")?.checked,
             buff: document.getElementById("dedupeBuff")?.checked,
             pendant: document.getElementById("dedupePendant")?.checked,
-            accessory: document.getElementById("dedupeAccessory")?.checked
+            accessory: document.getElementById("dedupeAccessory")?.checked,
+            spirit: document.getElementById("dedupeSpirit")?.checked
         };
 
         let filteredResults = dedupeResults(results, dedupeOptions);
-        const topN = filteredResults.sort((a,b)=>b.Vval - a.Vval).slice(0, 200);
+        filteredResults.sort((a,b)=>b.Vval - a.Vval);
+        const topN = filteredResults.slice(0, 200);
+        const bottomN = filteredResults.slice(-50).reverse();
 
-        // 🔥 표 그리기 로직
-        const resultArea = document.querySelector(".result-area");
-        resultArea.innerHTML = `<h2>결과 (상위 ${topN.length}개)</h2><div class="table-wrapper"><table id="resTable"><thead><tr>
-            <th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th><th>Vval</th><th>HP</th><th>ATK</th><th>DEF</th>
-        </tr></thead><tbody id="resBody"></tbody></table></div>`;
+        const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>HP</th><th>ATK</th><th>DEF</th>`;
 
-        const resBody = document.getElementById("resBody");
-        topN.forEach(b => {
-            const row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${b.type}</td>
+        function makeRow(b) {
+            const spiritTd = spiritOptOn ? `<td style="font-size:11px;">${b.spiritLabel || "-"}</td>` : "";
+            return `<td>${b.type}</td>
                 <td>${formatBuff(b.buff)}</td>
                 <td>${formatPercent(b.pendantOpt)}</td>
                 <td>${b.gemLevel}</td>
                 <td>${formatGems(b.gems)}</td>
                 <td>${formatPercent(b.accessoryOpt)}</td>
                 <td>${b.enchant.some(v=>v>0) ? formatPercent(b.enchant) : "-"}</td>
+                ${spiritTd}
                 <td class="vval">${b.Vval.toLocaleString()}</td>
                 <td class="hp">${b.stats.hp}</td>
                 <td class="atk">${b.stats.atk}</td>
-                <td class="def">${b.stats.def}</td>
-            `;
-            resBody.appendChild(row);
-        });
+                <td class="def">${b.stats.def}</td>`;
+        }
+
+        // 표 그리기
+        const resultArea = document.querySelector(".result-area");
+        resultArea.innerHTML = `
+            <h2>결과 (상위 ${topN.length}개)</h2>
+            <div class="table-wrapper"><table id="resTable"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>
+            <h2 style="margin-top:40px; color:#c0392b;">하위 ${bottomN.length}개</h2>
+            <div class="table-wrapper"><table><thead><tr>${thRow}</tr></thead><tbody id="resBotBody"></tbody></table></div>`;
+
+        const resBody = document.getElementById("resBody");
+        topN.forEach(b => { const row = document.createElement("tr"); row.innerHTML = makeRow(b); resBody.appendChild(row); });
+
+        const resBotBody = document.getElementById("resBotBody");
+        bottomN.forEach(b => { const row = document.createElement("tr"); row.innerHTML = makeRow(b); resBotBody.appendChild(row); });
     } catch(e) {
         alert(e.message);
     }
