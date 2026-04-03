@@ -144,10 +144,9 @@ const ResultEngine = (function() {
             const acc = accs[ai];
             const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value];
             if (!accBase) continue;
-            const eOpts = acc.enchant === "all" ? [0,1,2] : [statIdx[acc.enchant]];
+            const eOpts = acc.enchant === "all" ? [0,1,2] : [statIdx[acc.enchant] !== undefined ? statIdx[acc.enchant] : -1];
             for (let ei = 0; ei < eOpts.length; ei++) {
                 const eIdx = eOpts[ei];
-                if (eIdx === undefined) continue;
                 const rH = accBase[0] + (eIdx===0?21:0);
                 const rA = accBase[1] + (eIdx===1?21:0);
                 const rD = accBase[2] + (eIdx===2?21:0);
@@ -234,60 +233,92 @@ const ResultEngine = (function() {
     }
 
     // 특정 조건에서 한 마리의 용이 낼 수 있는 '최선'의 세팅을 찾는 함수
+    // 경량 탐색 → 승자만 상세 계산
     function _findBestSettingForDragon(dragon, gemPool, accs, pens, multipliers) {
         const base = DB.BASE_STATS[dragon.type]?.[dragon.dStat];
         if (!base) return null;
 
         const spirit = _calcSpiritStats(dragon.spiritStats, dragon.spiritTypes, dragon.bonus);
         const statIdx = { "체": 0, "공": 1, "방": 2 };
-        let best = { vval: -1 };
+        const b0 = base[0], b1 = base[1], b2 = base[2];
+        const sp0 = spirit.plus[0], sp1 = spirit.plus[1], sp2 = spirit.plus[2];
+        const sr0 = spirit.percent[0]/100, sr1 = spirit.percent[1]/100, sr2 = spirit.percent[2]/100;
+        const bh = spirit.bonus==="체"?40:0, ba = spirit.bonus==="공"?10:0, bd = spirit.bonus==="방"?10:0;
+        const buffH = Math.trunc(b0*multipliers[0]), buffA = Math.trunc(b1*multipliers[1]), buffD = Math.trunc(b2*multipliers[2]);
 
-        const currentTotalInv = {
-            체: Object.values(gemPool).reduce((sum, lv) => sum + lv.체, 0),
-            공: Object.values(gemPool).reduce((sum, lv) => sum + lv.공, 0),
-            방: Object.values(gemPool).reduce((sum, lv) => sum + lv.방, 0)
-        };
+        // 젬 사전 계산
+        const gemH = [], gemA = [], gemD = [];
+        for (let n = 0; n <= 5; n++) {
+            gemH[n] = _calcGemFast(n,"체",gemPool) + 24;
+            gemA[n] = _calcGemFast(n,"공",gemPool) + 6;
+            gemD[n] = _calcGemFast(n,"방",gemPool) + 6;
+        }
 
-        accs.forEach(acc => {
-            const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value] || [0, 0, 0];
-            const enchantOptions = acc.enchant === "all" ? ["체", "공", "방"] : [acc.enchant];
+        // 팬던트 사전 파싱
+        const penParsed = [];
+        for (let pi = 0; pi < pens.length; pi++) {
+            const pen = pens[pi];
+            const p = [0,0,0];
+            const o1 = statIdx[pen.opt1]; if(o1!==undefined) p[o1] += parseInt(pen.stat1)||0;
+            const o2 = statIdx[pen.opt2]; if(o2!==undefined) p[o2] += parseInt(pen.stat2)||0;
+            if(pen.type==="태양") { const o3 = statIdx[pen.opt3]; if(o3!==undefined) p[o3] += parseInt(pen.stat3)||0; }
+            penParsed[pi] = p;
+        }
 
-            enchantOptions.forEach(eOpt => {
-                const encStats = (statIdx[eOpt] !== undefined) ? [0, 0, 0].map((_, i) => i === statIdx[eOpt] ? 21 : 0) : [0, 0, 0];
-
-                pens.forEach(pen => {
-                    const pStats = [0, 0, 0];
-                    const opts = [[pen.opt1, pen.stat1], [pen.opt2, pen.stat2]];
-                    if (pen.type === "태양") opts.push([pen.opt3, pen.stat3]);
-                    opts.forEach(([o, v]) => { if (statIdx.hasOwnProperty(o)) pStats[statIdx[o]] += parseInt(v) || 0; });
-
-                    const ctx = { acc: accBase, enchant: encStats, pendant: pStats, multipliers: multipliers };
-
-                    for (let h = 0; h <= Math.min(5, currentTotalInv.체); h++) {
-                        for (let a = 0; a <= 5 - h; a++) {
-                            let d = 5 - h - a;
-                            if (d > currentTotalInv.방 || d < 0) continue;
-
-                            const res = _computeWithDetailedLog(base, {h, a, d}, spirit, ctx, gemPool);
-                            if (res.vval > best.vval) {
-                                best = {
-                                    ...res, h, a, d,
-                                    dN: dragon.name, dT: dragon.type, dS: dragon.dStat,
-                                    accN: acc.item, accV: acc.value, eN: eOpt,
-                                    penN: pen.type, penDetails: pen.type === "태양" 
-    ? `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}/${pen.opt3}${pen.stat3}`
-    : `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}`,
-                                    accUid: acc.uid, penUid: pen.uid,
-                                    raw: { base, spirit, ctx: ctx }
-                                };
-                            }
+        // 1패스: 경량 탐색으로 승자 인덱스 찾기
+        let bestVval = -1, bestAi = -1, bestEi = -1, bestPi = -1, bestH = 0, bestA = 0;
+        for (let ai = 0; ai < accs.length; ai++) {
+            const acc = accs[ai];
+            const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value];
+            if (!accBase) continue;
+            const eOpts = acc.enchant === "all" ? [0,1,2] : [statIdx[acc.enchant] !== undefined ? statIdx[acc.enchant] : -1];
+            for (let ei = 0; ei < eOpts.length; ei++) {
+                const eIdx = eOpts[ei];
+                const rH = accBase[0]+(eIdx===0?21:0), rA = accBase[1]+(eIdx===1?21:0), rD = accBase[2]+(eIdx===2?21:0);
+                for (let pi = 0; pi < penParsed.length; pi++) {
+                    const pp = penParsed[pi];
+                    const pp0=pp[0]/100, pp1=pp[1]/100, pp2=pp[2]/100;
+                    for (let h = 0; h <= 5; h++) {
+                        const ghv = gemH[h];
+                        for (let a = 0; a <= 5-h; a++) {
+                            let hp=b0+ghv, atk=b1+gemA[a], def=b2+gemD[5-h-a];
+                            hp+=Math.trunc(hp*rH/100); atk+=Math.trunc(atk*rA/100); def+=Math.trunc(def*rD/100);
+                            hp+=sp0; atk+=sp1; def+=sp2;
+                            hp+=Math.trunc(hp*sr0); atk+=Math.trunc(atk*sr1); def+=Math.trunc(def*sr2);
+                            hp+=bh; atk+=ba; def+=bd;
+                            hp+=Math.trunc(hp*pp0); atk+=Math.trunc(atk*pp1); def+=Math.trunc(def*pp2);
+                            hp+=240+buffH; atk+=60+buffA; def+=60+buffD;
+                            const v = hp*atk*def;
+                            if (v > bestVval) { bestVval=v; bestAi=ai; bestEi=eOpts[ei]; bestPi=pi; bestH=h; bestA=a; }
                         }
                     }
-                });
-            });
-        });
+                }
+            }
+        }
 
-        return best.vval !== -1 ? best : null;
+        if (bestVval <= 0) return null;
+
+        // 2패스: 승자만 상세 계산 (로그 + 젬 레벨)
+        const acc = accs[bestAi];
+        const pen = pens[bestPi];
+        const accBase = DB.ACCESSORY_STATS_DB[acc.item]?.[acc.value] || [0,0,0];
+        const eOptStr = bestEi===0?"체":bestEi===1?"공":bestEi===2?"방":"";
+        const encStats = [bestEi===0?21:0, bestEi===1?21:0, bestEi===2?21:0];
+        const pStats = penParsed[bestPi];
+        const d = 5 - bestH - bestA;
+        const ctx = { acc: accBase, enchant: encStats, pendant: pStats, multipliers: multipliers };
+        const res = _computeWithDetailedLog(base, {h:bestH, a:bestA, d:d}, spirit, ctx, gemPool);
+
+        return {
+            ...res, h: bestH, a: bestA, d: d,
+            dN: dragon.name, dT: dragon.type, dS: dragon.dStat,
+            accN: acc.item, accV: acc.value, eN: eOptStr,
+            penN: pen.type, penDetails: pen.type === "태양"
+                ? `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}/${pen.opt3}${pen.stat3}`
+                : `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}`,
+            accUid: acc.uid, penUid: pen.uid,
+            raw: { base, spirit, ctx: ctx }
+        };
     }
 
     // ★ 그리디 배분: 주어진 순서대로 실제 자원 할당하고 팀 결과 반환
@@ -444,13 +475,41 @@ run: function() {
             return mult;
         }
 
+        // 예비/해제 버프 모드별 타입 후보군
+        const reserveBuffMode = getV("reserve-buff-mode"); // "2buff"|"1buff"|"both"
+        const STAT_TYPE_MAP = {
+            "체": ["체","체공","체방"],
+            "공": ["공","체공","공방"],
+            "방": ["방","체방","공방"]
+        };
+
+        function _getTypesToTry() {
+            const allTypes = ["체","공","방","체공","체방","공방"];
+            // 2벞: 타입버프에 매칭되는 타입만 (없으면 전체)
+            const types2 = (config.b3 && config.b3 !== "선택" && allTypes.includes(config.b3)) ? [config.b3] : allTypes;
+            // 1벞: 속성버프 스탯에 맞는 타입 - 너프 타입 제외
+            let types1 = allTypes;
+            if (config.b2 && STAT_TYPE_MAP[config.b2]) {
+                types1 = STAT_TYPE_MAP[config.b2].filter(t => t !== config.d3);
+                if (types1.length === 0) types1 = STAT_TYPE_MAP[config.b2]; // 전부 너프에 걸리면 그냥 포함
+            }
+
+            if (reserveBuffMode === "2buff") return types2;
+            if (reserveBuffMode === "1buff") return types1;
+            // "both": 합집합
+            const set = new Set([...types2, ...types1]);
+            return [...set];
+        }
+
+        const reserveTypesToTry = _getTypesToTry();
+
         // 일반 용 평가 (고속)
         regularDragons.forEach(dragon => {
             const dragonAttrKr = (spiritUnlock !== "off") ? (config.b1 || "") : (attrMap[dragon.attrKey] || dragon.attrKey);
 
             if (spiritUnlock === "all" && dragon.type === "전체") {
                 let bestVval = 0, bestType = "체", bestMult = [0,0,0];
-                ["체","공","방","체공","체방","공방"].forEach(tryType => {
+                reserveTypesToTry.forEach(tryType => {
                     const tryDragon = { ...dragon, type: tryType };
                     const mult = _calcMult(dragonAttrKr, tryType);
                     const v = _findBestVval(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
@@ -479,7 +538,7 @@ run: function() {
 
                 if (dragon.type === "전체") {
                     let bestVval = 0, bestType = "체", bestMult = [0,0,0];
-                    ["체","공","방","체공","체방","공방"].forEach(tryType => {
+                    reserveTypesToTry.forEach(tryType => {
                         const tryDragon = { ...dragon, attrKey: resolvedAttrKey, type: tryType };
                         const mult = _calcMult(reserveAttrKr, tryType);
                         const v = _findBestVval(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
@@ -618,7 +677,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock };
+        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -786,6 +845,7 @@ ${(res.fullLog || []).join('\n')}
         if(saved.spiritUnlock !== undefined && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
         if(saved.maxResource !== undefined && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
         if(saved.maxResType !== undefined && document.getElementById("max-resource-type")) document.getElementById("max-resource-type").value = saved.maxResType;
+        if(saved.reserveBuffMode !== undefined && document.getElementById("reserve-buff-mode")) document.getElementById("reserve-buff-mode").value = saved.reserveBuffMode;
         if(saved.results) render(saved.results, saved.maxResource, saved.maxResType);
     }
     if(btn) {
