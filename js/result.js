@@ -502,6 +502,15 @@ run: function() {
         }
 
         const reserveTypesToTry = _getTypesToTry();
+        const reserveTypeMode = getV("reserve-type-mode"); // "all" | "selected"
+
+        // 예비 정령용: 선택 모드면 dragon.selectedTypes와 교집합
+        function _typesForReserve(dragon) {
+            if (reserveTypeMode === "selected" && Array.isArray(dragon.selectedTypes) && dragon.selectedTypes.length > 0) {
+                return reserveTypesToTry.filter(t => dragon.selectedTypes.includes(t));
+            }
+            return reserveTypesToTry;
+        }
 
         // 일반 용 평가 (고속)
         regularDragons.forEach(dragon => {
@@ -536,9 +545,11 @@ run: function() {
                 const reserveAttrKr = buffAttrKey ? config.b1 : "";
                 const resolvedAttrKey = buffAttrKey || "reserve";
 
-                if (dragon.type === "전체") {
-                    let bestVval = 0, bestType = "체", bestMult = [0,0,0];
-                    reserveTypesToTry.forEach(tryType => {
+                if (dragon.type === "전체" || (Array.isArray(dragon.selectedTypes) && dragon.selectedTypes.length > 0)) {
+                    const types = _typesForReserve(dragon);
+                    if (types.length === 0) return;
+                    let bestVval = 0, bestType = types[0], bestMult = [0,0,0];
+                    types.forEach(tryType => {
                         const tryDragon = { ...dragon, attrKey: resolvedAttrKey, type: tryType };
                         const mult = _calcMult(reserveAttrKr, tryType);
                         const v = _findBestVval(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
@@ -677,7 +688,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode };
+        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -846,6 +857,7 @@ ${(res.fullLog || []).join('\n')}
         if(saved.maxResource !== undefined && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
         if(saved.maxResType !== undefined && document.getElementById("max-resource-type")) document.getElementById("max-resource-type").value = saved.maxResType;
         if(saved.reserveBuffMode !== undefined && document.getElementById("reserve-buff-mode")) document.getElementById("reserve-buff-mode").value = saved.reserveBuffMode;
+        if(saved.reserveTypeMode !== undefined && document.getElementById("reserve-type-mode")) document.getElementById("reserve-type-mode").value = saved.reserveTypeMode;
         if(saved.results) render(saved.results, saved.maxResource, saved.maxResType);
     }
     if(btn) {

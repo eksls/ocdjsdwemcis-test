@@ -69,12 +69,50 @@ name.addEventListener("input", triggerSave);
   // --- Row 2: 등급 + 타입 + 부가옵 + 정령 3, 4 ---
   const row2 = document.createElement("div");
   row2.className = "slot-row row2";
-  
-  const type = document.createElement("select");
-  const typeOptions = isReserve
-    ? ["타입","체","공","방","체공","체방","공방","전체"]
-    : ["타입","체","공","방","체공","체방","공방"];
-  typeOptions.forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
+
+  let type, getTypeValue, setTypeValue;
+  if (isReserve) {
+    // 예비 정령: 6개 토글 버튼
+    type = document.createElement("div");
+    type.className = "type-toggles";
+    type.style.cssText = "display:flex; gap:2px; flex:1;";
+    const TYPES = ["체","공","방","체공","체방","공방"];
+    const btns = [];
+    TYPES.forEach(t => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = t;
+      b.dataset.type = t;
+      b.dataset.on = "0";
+      b.style.cssText = "flex:1; min-width:0; padding:2px 0; font-size:11px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:3px;";
+      b.onclick = () => {
+        const on = b.dataset.on === "1";
+        b.dataset.on = on ? "0" : "1";
+        b.style.background = on ? "#fff" : "#007bff";
+        b.style.color = on ? "#000" : "#fff";
+        triggerSave();
+      };
+      type.appendChild(b);
+      btns.push(b);
+    });
+    getTypeValue = () => btns.filter(b => b.dataset.on === "1").map(b => b.dataset.type);
+    setTypeValue = (arr) => {
+      // 마이그레이션: 문자열이면 배열로
+      let list = Array.isArray(arr) ? arr : (arr === "전체" ? TYPES : (TYPES.includes(arr) ? [arr] : []));
+      btns.forEach(b => {
+        const on = list.includes(b.dataset.type);
+        b.dataset.on = on ? "1" : "0";
+        b.style.background = on ? "#007bff" : "#fff";
+        b.style.color = on ? "#fff" : "#000";
+      });
+    };
+    type._getValue = getTypeValue;
+    type._setValue = setTypeValue;
+  } else {
+    type = document.createElement("select");
+    ["타입","체","공","방","체공","체방","공방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
+    type.addEventListener("change", triggerSave);
+  }
   
   const dStat = document.createElement("select");
   ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
@@ -85,9 +123,8 @@ name.addEventListener("input", triggerSave);
   const s3 = createSpirit(data?.spiritStats?.[2], data?.spiritTypes?.[2]);
   const s4 = createSpirit(data?.spiritStats?.[3], data?.spiritTypes?.[3]);
 
-  [dStat, type, bonus].forEach(el => el.addEventListener("change", triggerSave));
+  [dStat, bonus].forEach(el => el.addEventListener("change", triggerSave));
 
-  // ⭐ 위치 변경: dStat(등급)을 type(타입)보다 먼저 추가 ⭐
   row2.append(dStat, type, bonus); 
   row2.append(s3.querySelector(".spirit-stat"), s3.querySelector(".spirit-type"),
               s4.querySelector(".spirit-stat"), s4.querySelector(".spirit-type"));
@@ -99,8 +136,13 @@ name.addEventListener("input", triggerSave);
   if (data) {
     name.value = data.name || "";
     dStat.value = data.dStat || "9.0";
-    type.value = data.type || "타입";
     bonus.value = data.bonus || "부가옵";
+    if (isReserve) {
+      // selectedTypes 우선, 없으면 기존 type 필드 마이그레이션
+      type._setValue(data.selectedTypes || data.type || []);
+    } else {
+      type.value = data.type || "타입";
+    }
   }
 
   return slot;
@@ -201,22 +243,35 @@ function saveDragonUI(){
             // 데이터가 없으면 건너뛰지 않고 구조를 유지하기 위해 기본값 설정
             if (!nameEl) return;
 
-            // 정령 스탯 4개와 타입 4개를 배열로 수집
             const sStats = Array.from(slot.querySelectorAll(".spirit-stat")).map(el => el.value);
             const sTypes = Array.from(slot.querySelectorAll(".spirit-type")).map(el => el.value);
             
-            // row2에 있는 선택창들 (등급, 타입, 부가옵)
-            const selects = slot.querySelectorAll(".row2 > select");
+            // row2: 첫번째는 등급(select), 그다음은 타입(select 또는 toggles div), 마지막은 부가옵(select)
+            const row2 = slot.querySelector(".row2");
+            const dStatEl = row2.querySelector("select"); // 첫 번째 select = dStat
+            const allSelects = row2.querySelectorAll("select");
+            const bonusEl = allSelects[allSelects.length - 1]; // 마지막 select 후보
+            const togglesEl = row2.querySelector(".type-toggles");
 
-            data.push({
+            const entry = {
                 attrKey: key,
                 name: nameEl.value,
-                dStat: selects[0]?.value || "9.0",
-                type: selects[1]?.value || "타입",
-                bonus: selects[2]?.value || "부가옵",
+                dStat: dStatEl?.value || "9.0",
+                bonus: bonusEl?.value || "부가옵",
                 spiritStats: sStats,
                 spiritTypes: sTypes
-            });
+            };
+
+            if (togglesEl && togglesEl._getValue) {
+                // 예비: 선택된 타입 배열
+                entry.selectedTypes = togglesEl._getValue();
+                entry.type = entry.selectedTypes.length > 0 ? "전체" : "타입"; // 호환용
+            } else {
+                // 일반: 두 번째 select가 type
+                entry.type = allSelects[1]?.value || "타입";
+            }
+
+            data.push(entry);
         });
     });
     
