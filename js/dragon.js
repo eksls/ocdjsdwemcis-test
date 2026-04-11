@@ -254,12 +254,13 @@ function saveDragonUI(){
             const sStats = Array.from(slot.querySelectorAll(".spirit-stat")).map(el => el.value);
             const sTypes = Array.from(slot.querySelectorAll(".spirit-type")).map(el => el.value);
             
-            // row2: 첫번째는 등급(select), 그다음은 타입(select 또는 toggles div), 마지막은 부가옵(select)
+            // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
+            const togglesEl = slot.querySelector(".type-toggles");
             const row2 = slot.querySelector(".row2");
-            const dStatEl = row2.querySelector("select"); // 첫 번째 select = dStat
-            const allSelects = row2.querySelectorAll("select");
-            const bonusEl = allSelects[allSelects.length - 1]; // 마지막 select 후보
-            const togglesEl = row2.querySelector(".type-toggles");
+            // row2 첫 select = dStat, 마지막 select = bonus (예비는 select 2개, 일반은 3개)
+            const row2Selects = row2.querySelectorAll("select");
+            const dStatEl = row2Selects[0];
+            const bonusEl = row2Selects[row2Selects.length - 1];
 
             const entry = {
                 attrKey: key,
@@ -271,12 +272,11 @@ function saveDragonUI(){
             };
 
             if (togglesEl && togglesEl._getValue) {
-                // 예비: 선택된 타입 배열
                 entry.selectedTypes = togglesEl._getValue();
-                entry.type = entry.selectedTypes.length > 0 ? "전체" : "타입"; // 호환용
+                entry.type = "전체"; // 호환용 (예비 표시용)
             } else {
-                // 일반: 두 번째 select가 type
-                entry.type = allSelects[1]?.value || "타입";
+                // 일반: row2의 두 번째 select가 type (dStat, type, bonus 순)
+                entry.type = row2Selects[1]?.value || "타입";
             }
 
             data.push(entry);
