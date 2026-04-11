@@ -72,10 +72,9 @@ name.addEventListener("input", triggerSave);
 
   let type, getTypeValue, setTypeValue;
   if (isReserve) {
-    // 예비 정령: 6개 토글 버튼
     type = document.createElement("div");
     type.className = "type-toggles";
-    type.style.cssText = "display:flex; gap:2px; flex:1;";
+    type.style.cssText = "display:flex; gap:4px; width:100%; margin-top:2px;";
     const TYPES = ["체","공","방","체공","체방","공방"];
     const btns = [];
     TYPES.forEach(t => {
@@ -84,7 +83,7 @@ name.addEventListener("input", triggerSave);
       b.textContent = t;
       b.dataset.type = t;
       b.dataset.on = "0";
-      b.style.cssText = "flex:1; min-width:0; padding:2px 0; font-size:11px; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:3px;";
+      b.style.cssText = "flex:1; min-width:0; height:30px; padding:0; font-size:13px; font-weight:bold; border:1px solid #ccc; background:#fff; cursor:pointer; border-radius:4px;";
       b.onclick = () => {
         const on = b.dataset.on === "1";
         b.dataset.on = on ? "0" : "1";
@@ -97,7 +96,6 @@ name.addEventListener("input", triggerSave);
     });
     getTypeValue = () => btns.filter(b => b.dataset.on === "1").map(b => b.dataset.type);
     setTypeValue = (arr) => {
-      // 마이그레이션: 문자열이면 배열로
       let list = Array.isArray(arr) ? arr : (arr === "전체" ? TYPES : (TYPES.includes(arr) ? [arr] : []));
       btns.forEach(b => {
         const on = list.includes(b.dataset.type);
@@ -111,6 +109,7 @@ name.addEventListener("input", triggerSave);
   } else {
     type = document.createElement("select");
     ["타입","체","공","방","체공","체방","공방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
+    type.style.cssText = "flex:1.5; padding:0 8px; font-size:14px;"; // 살짝 키움
     type.addEventListener("change", triggerSave);
   }
   
@@ -125,20 +124,29 @@ name.addEventListener("input", triggerSave);
 
   [dStat, bonus].forEach(el => el.addEventListener("change", triggerSave));
 
-  row2.append(dStat, type, bonus); 
-  row2.append(s3.querySelector(".spirit-stat"), s3.querySelector(".spirit-type"),
-              s4.querySelector(".spirit-stat"), s4.querySelector(".spirit-type"));
-
-  grid.append(row1, row2);
+  // 예비: row2에서 type 제외, row3에 type 토글 별도 배치
+  if (isReserve) {
+    row2.append(dStat, bonus); 
+    row2.append(s3.querySelector(".spirit-stat"), s3.querySelector(".spirit-type"),
+                s4.querySelector(".spirit-stat"), s4.querySelector(".spirit-type"));
+    const row3 = document.createElement("div");
+    row3.className = "slot-row row3";
+    row3.style.cssText = "display:flex; width:100%;";
+    row3.appendChild(type);
+    grid.append(row1, row2, row3);
+  } else {
+    row2.append(dStat, type, bonus); 
+    row2.append(s3.querySelector(".spirit-stat"), s3.querySelector(".spirit-type"),
+                s4.querySelector(".spirit-stat"), s4.querySelector(".spirit-type"));
+    grid.append(row1, row2);
+  }
   slot.appendChild(grid);
 
-  // 초기값 세팅
   if (data) {
     name.value = data.name || "";
     dStat.value = data.dStat || "9.0";
     bonus.value = data.bonus || "부가옵";
     if (isReserve) {
-      // selectedTypes 우선, 없으면 기존 type 필드 마이그레이션
       type._setValue(data.selectedTypes || data.type || []);
     } else {
       type.value = data.type || "타입";
