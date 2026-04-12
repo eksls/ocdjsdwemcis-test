@@ -108,15 +108,18 @@ name.addEventListener("input", triggerSave);
     type._setValue = setTypeValue;
   } else {
     type = document.createElement("select");
+    type.className = "dragon-type";
     ["타입","체","공","방","체공","체방","공방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
     type.style.cssText = "flex:1.5; padding:0 8px; font-size:14px;"; // 살짝 키움
     type.addEventListener("change", triggerSave);
   }
   
   const dStat = document.createElement("select");
+  dStat.className = "dragon-dstat";
   ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
-  
+
   const bonus = document.createElement("select");
+  bonus.className = "dragon-bonus";
   ["부가옵","체","공","방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; bonus.appendChild(o); });
 
   const s3 = createSpirit(data?.spiritStats?.[2], data?.spiritTypes?.[2]);
@@ -145,7 +148,9 @@ name.addEventListener("input", triggerSave);
   if (data) {
     name.value = data.name || "";
     dStat.value = data.dStat || "9.0";
-    bonus.value = data.bonus || "부가옵";
+    // 이전 버전 버그로 bonus에 "옵"/"%"/"+" 같은 잘못된 값이 저장됐을 수 있어 검증
+    const validBonus = ["부가옵","체","공","방"];
+    bonus.value = validBonus.includes(data.bonus) ? data.bonus : "부가옵";
     if (isReserve) {
       type._setValue(data.selectedTypes || data.type || []);
     } else {
@@ -256,11 +261,10 @@ function saveDragonUI(){
             
             // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
             const togglesEl = slot.querySelector(".type-toggles");
-            const row2 = slot.querySelector(".row2");
-            // row2 첫 select = dStat, 마지막 select = bonus (예비는 select 2개, 일반은 3개)
-            const row2Selects = row2.querySelectorAll("select");
-            const dStatEl = row2Selects[0];
-            const bonusEl = row2Selects[row2Selects.length - 1];
+            // 클래스로 정확히 찾기 (정령 select와 섞이지 않도록)
+            const dStatEl = slot.querySelector(".dragon-dstat");
+            const bonusEl = slot.querySelector(".dragon-bonus");
+            const typeEl  = slot.querySelector(".dragon-type");
 
             const entry = {
                 attrKey: key,
@@ -275,8 +279,7 @@ function saveDragonUI(){
                 entry.selectedTypes = togglesEl._getValue();
                 entry.type = "전체"; // 호환용 (예비 표시용)
             } else {
-                // 일반: row2의 두 번째 select가 type (dStat, type, bonus 순)
-                entry.type = row2Selects[1]?.value || "타입";
+                entry.type = typeEl?.value || "타입";
             }
 
             data.push(entry);
