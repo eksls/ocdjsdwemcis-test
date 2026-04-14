@@ -122,10 +122,18 @@ name.addEventListener("input", triggerSave);
   }
 
   const dStat = document.createElement("select");
+  dStat.className = "dragon-dstat";
   ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
   
   const bonus = document.createElement("select");
+  bonus.className = "dragon-bonus";
   ["부가옵","체","공","방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; bonus.appendChild(o); });
+
+  if (attrSel) attrSel.className = "dragon-reserve-attr";
+  if (!isReserve) {
+    // type select에도 명시 class
+    type.classList.add("dragon-type");
+  }
 
   const s3 = createSpirit(data?.spiritStats?.[2], data?.spiritTypes?.[2]);
   const s4 = createSpirit(data?.spiritStats?.[3], data?.spiritTypes?.[3]);
@@ -265,14 +273,11 @@ function saveDragonUI(){
             
             // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
             const togglesEl = slot.querySelector(".type-toggles");
-            const row2 = slot.querySelector(".row2");
-            // row2의 직속 select만 가져옴 (spirit-stat/spirit-type 제외)
-            const row2Selects = Array.from(row2.querySelectorAll("select"))
-                .filter(el => !el.classList.contains("spirit-stat") && !el.classList.contains("spirit-type"));
+            const dStatEl = slot.querySelector(".dragon-dstat");
+            const bonusEl = slot.querySelector(".dragon-bonus");
+            const attrEl = slot.querySelector(".dragon-reserve-attr");
+            const typeEl = slot.querySelector(".dragon-type");
             const isReserveSlot = !!togglesEl;
-            // 예비: [attrSel, dStat, bonus], 일반: [dStat, type, bonus]
-            const dStatEl = isReserveSlot ? row2Selects[1] : row2Selects[0];
-            const bonusEl = row2Selects[row2Selects.length - 1];
 
             const entry = {
                 attrKey: key,
@@ -286,9 +291,9 @@ function saveDragonUI(){
             if (isReserveSlot) {
                 entry.selectedTypes = togglesEl._getValue();
                 entry.type = "전체";
-                entry.reserveAttr = row2Selects[0]?.value || "속성";
+                entry.reserveAttr = attrEl?.value || "속성";
             } else {
-                entry.type = row2Selects[1]?.value || "타입";
+                entry.type = typeEl?.value || "타입";
             }
 
             data.push(entry);
