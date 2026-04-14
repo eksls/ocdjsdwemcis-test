@@ -110,14 +110,6 @@
     </select>
   </div>
   <div>
-    <label style="font-weight: bold; margin-right: 6px;">정령 해제:</label>
-    <select id="spirit-unlock" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-      <option value="off">미설정</option>
-      <option value="typeFixed">타입만 고정</option>
-      <option value="all">전체</option>
-    </select>
-  </div>
-  <div>
     <label style="font-weight: bold; margin-right: 6px;">예비/해제 버프:</label>
     <select id="reserve-buff-mode" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
       <option value="2buff">2벞</option>
@@ -126,14 +118,24 @@
     </select>
   </div>
   <div>
-    <label style="font-weight: bold; margin-right: 6px;">예비 정령 타입:</label>
+    <label style="font-weight: bold; margin-right: 6px;">예비 속성/타입:</label>
     <select id="reserve-type-mode" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
-      <option value="selected">선택</option>
-      <option value="all">전체</option>
+      <option value="asis">그대로</option>
+      <option value="attrUnified">속성 통일</option>
+      <option value="typeUnified">타입 통일</option>
+      <option value="allUnified">전체 통일</option>
     </select>
   </div>
 </div>
 <div style="display: flex; justify-content: center; gap: 24px; margin-bottom: 15px; flex-wrap: wrap;">
+  <div>
+    <label style="font-weight: bold; margin-right: 6px;">정령 해제:</label>
+    <select id="spirit-unlock" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+      <option value="off">미설정</option>
+      <option value="typeFixed">타입만 고정</option>
+      <option value="all">전체</option>
+    </select>
+  </div>
   <div>
     <label style="font-weight: bold; margin-right: 6px;">최대 자원:</label>
     <select id="max-resource" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
