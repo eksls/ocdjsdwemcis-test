@@ -266,7 +266,9 @@ function saveDragonUI(){
             // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
             const togglesEl = slot.querySelector(".type-toggles");
             const row2 = slot.querySelector(".row2");
-            const row2Selects = row2.querySelectorAll("select");
+            // row2의 직속 select만 가져옴 (spirit-stat/spirit-type 제외)
+            const row2Selects = Array.from(row2.querySelectorAll("select"))
+                .filter(el => !el.classList.contains("spirit-stat") && !el.classList.contains("spirit-type"));
             const isReserveSlot = !!togglesEl;
             // 예비: [attrSel, dStat, bonus], 일반: [dStat, type, bonus]
             const dStatEl = isReserveSlot ? row2Selects[1] : row2Selects[0];
