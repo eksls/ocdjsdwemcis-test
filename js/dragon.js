@@ -108,18 +108,23 @@ name.addEventListener("input", triggerSave);
     type._setValue = setTypeValue;
   } else {
     type = document.createElement("select");
-    type.className = "dragon-type";
     ["타입","체","공","방","체공","체방","공방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; type.appendChild(o); });
     type.style.cssText = "flex:1.5; padding:0 8px; font-size:14px;"; // 살짝 키움
     type.addEventListener("change", triggerSave);
   }
   
-  const dStat = document.createElement("select");
-  dStat.className = "dragon-dstat";
-  ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
+  // 예비 정령: 속성 select 추가
+  let attrSel = null;
+  if (isReserve) {
+    attrSel = document.createElement("select");
+    ["속성","땅","물","불","바람","빛","어둠","여명","황혼","악몽"].forEach(v => { const o=document.createElement("option"); o.textContent=v; attrSel.appendChild(o); });
+    attrSel.addEventListener("change", triggerSave);
+  }
 
+  const dStat = document.createElement("select");
+  ["9.0","8.0","7.0"].forEach(v => { const o=document.createElement("option"); o.textContent=v; dStat.appendChild(o); });
+  
   const bonus = document.createElement("select");
-  bonus.className = "dragon-bonus";
   ["부가옵","체","공","방"].forEach(v => { const o=document.createElement("option"); o.textContent=v; bonus.appendChild(o); });
 
   const s3 = createSpirit(data?.spiritStats?.[2], data?.spiritTypes?.[2]);
@@ -129,7 +134,7 @@ name.addEventListener("input", triggerSave);
 
   // 예비: row2에서 type 제외, row3에 type 토글 별도 배치
   if (isReserve) {
-    row2.append(dStat, bonus); 
+    row2.append(attrSel, dStat, bonus); 
     row2.append(s3.querySelector(".spirit-stat"), s3.querySelector(".spirit-type"),
                 s4.querySelector(".spirit-stat"), s4.querySelector(".spirit-type"));
     const row3 = document.createElement("div");
@@ -148,10 +153,9 @@ name.addEventListener("input", triggerSave);
   if (data) {
     name.value = data.name || "";
     dStat.value = data.dStat || "9.0";
-    // 이전 버전 버그로 bonus에 "옵"/"%"/"+" 같은 잘못된 값이 저장됐을 수 있어 검증
-    const validBonus = ["부가옵","체","공","방"];
-    bonus.value = validBonus.includes(data.bonus) ? data.bonus : "부가옵";
+    bonus.value = data.bonus || "부가옵";
     if (isReserve) {
+      if (attrSel && data.reserveAttr) attrSel.value = data.reserveAttr;
       type._setValue(data.selectedTypes || data.type || []);
     } else {
       type.value = data.type || "타입";
@@ -261,10 +265,12 @@ function saveDragonUI(){
             
             // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
             const togglesEl = slot.querySelector(".type-toggles");
-            // 클래스로 정확히 찾기 (정령 select와 섞이지 않도록)
-            const dStatEl = slot.querySelector(".dragon-dstat");
-            const bonusEl = slot.querySelector(".dragon-bonus");
-            const typeEl  = slot.querySelector(".dragon-type");
+            const row2 = slot.querySelector(".row2");
+            const row2Selects = row2.querySelectorAll("select");
+            const isReserveSlot = !!togglesEl;
+            // 예비: [attrSel, dStat, bonus], 일반: [dStat, type, bonus]
+            const dStatEl = isReserveSlot ? row2Selects[1] : row2Selects[0];
+            const bonusEl = row2Selects[row2Selects.length - 1];
 
             const entry = {
                 attrKey: key,
@@ -275,11 +281,12 @@ function saveDragonUI(){
                 spiritTypes: sTypes
             };
 
-            if (togglesEl && togglesEl._getValue) {
+            if (isReserveSlot) {
                 entry.selectedTypes = togglesEl._getValue();
-                entry.type = "전체"; // 호환용 (예비 표시용)
+                entry.type = "전체";
+                entry.reserveAttr = row2Selects[0]?.value || "속성";
             } else {
-                entry.type = typeEl?.value || "타입";
+                entry.type = row2Selects[1]?.value || "타입";
             }
 
             data.push(entry);

@@ -502,17 +502,24 @@ run: function() {
         }
 
         const reserveTypesToTry = _getTypesToTry();
-        const reserveTypeMode = getV("reserve-type-mode"); // "all" | "selected"
+        const reserveTypeMode = getV("reserve-type-mode"); // "asis"|"attrUnified"|"typeUnified"|"allUnified"
+        const ALL_TYPES_FULL = ["체","공","방","체공","체방","공방"];
 
-        // 예비 정령용 타입 목록
-        // - "all" 모드: reserveTypesToTry 그대로 (선택 무시)
-        // - "selected" 모드: selectedTypes와 교집합. selectedTypes 없으면 빈 배열 → 후보 제외
-        function _typesForReserve(dragon) {
-            if (reserveTypeMode === "selected") {
-                const sel = Array.isArray(dragon.selectedTypes) ? dragon.selectedTypes : [];
-                return reserveTypesToTry.filter(t => sel.includes(t));
-            }
-            return reserveTypesToTry;
+        // 예비 정령 모드별 (속성, 타입들) 결정
+        // - asis: 용의 선택 속성 + 선택 타입
+        // - attrUnified: 버프속성 + 용의 선택 타입
+        // - typeUnified: 용의 선택 속성 + reserveTypesToTry(버프모드 기반)
+        // - allUnified: 버프속성 + reserveTypesToTry
+        function _resolveReserve(dragon) {
+            const dragonAttrKr = dragon.reserveAttr && dragon.reserveAttr !== "속성" ? dragon.reserveAttr : null;
+            const sel = Array.isArray(dragon.selectedTypes) ? dragon.selectedTypes : [];
+
+            const unifyAttr = (reserveTypeMode === "attrUnified" || reserveTypeMode === "allUnified");
+            const unifyType = (reserveTypeMode === "typeUnified" || reserveTypeMode === "allUnified");
+
+            const attrKr = unifyAttr ? (config.b1 || dragonAttrKr) : dragonAttrKr;
+            const types = unifyType ? reserveTypesToTry : sel;
+            return { attrKr, types };
         }
 
         // 일반 용 평가 (고속)
@@ -545,23 +552,21 @@ run: function() {
         // 예비 정령 평가 (maxReserve > 0일 때만, 고속)
         if (maxReserve > 0) {
             reserveDragons.forEach(dragon => {
-                const reserveAttrKr = buffAttrKey ? config.b1 : "";
-                const resolvedAttrKey = buffAttrKey || "reserve";
-
-                const types = _typesForReserve(dragon);
-                if (types.length === 0) return; // 시도할 타입 없음 → 후보 제외
+                const { attrKr, types } = _resolveReserve(dragon);
+                const resolvedAttrKey = krToAttrKey[attrKr] || "reserve";
+                if (!types || types.length === 0) return;
 
                 let bestVval = 0, bestType = types[0], bestMult = [0,0,0];
                 types.forEach(tryType => {
                     const tryDragon = { ...dragon, attrKey: resolvedAttrKey, type: tryType };
-                    const mult = _calcMult(reserveAttrKr, tryType);
+                    const mult = _calcMult(attrKr || "", tryType);
                     const v = _findBestVval(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
                     if (v > bestVval) { bestVval = v; bestType = tryType; bestMult = mult; }
                 });
                 if (bestVval > 0) {
                     const resolved = { ...dragon, attrKey: resolvedAttrKey, type: bestType };
                     dragons.push(resolved);
-                    candidates.push({ dN: dragon.name, vval: bestVval, mult: bestMult, isReserve: true, isAllType: true });
+                    candidates.push({ dN: dragon.name, vval: bestVval, mult: bestMult, isReserve: true, isAllType: types.length > 1 });
                 }
             });
         }
