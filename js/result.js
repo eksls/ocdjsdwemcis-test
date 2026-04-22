@@ -448,11 +448,10 @@ run: function() {
                 const krAttr = attrKeyToKr[d.attrKey] || d.attrKey;
                 attrCounters[krAttr] = (attrCounters[krAttr] || 0) + 1;
                 const newName = `${krAttr}${attrCounters[krAttr]}`;
-                const resolvedAttrKey = buffAttrKey || d.attrKey;
                 if (spiritUnlock === "all") {
-                    return { ...d, name: newName, attrKey: resolvedAttrKey, type: "전체", _origAttr: krAttr };
+                    return { ...d, name: newName, type: "전체", _origAttr: krAttr };
                 } else {
-                    return { ...d, name: newName, attrKey: resolvedAttrKey, _origAttr: krAttr };
+                    return { ...d, name: newName, _origAttr: krAttr };
                 }
             });
         } else {
@@ -528,9 +527,9 @@ run: function() {
 
             // 정령 해제: 예비 정령 속성/타입 통일 모드와 동일한 규칙 적용
             if (spiritUnlock === "all" || spiritUnlock === "typeFixed") {
-                // 일반 용은 selectedTypes 없으므로 본인 type을 선택으로 간주, reserveAttr도 본인 속성
+                const origAttr = dragon._origAttr || attrMap[dragon.attrKey] || dragon.attrKey;
                 const virtualDragon = {
-                    reserveAttr: attrMap[dragon.attrKey] || dragon.attrKey,
+                    reserveAttr: origAttr,
                     selectedTypes: (dragon.type && dragon.type !== "전체") ? [dragon.type] : reserveTypesToTry
                 };
                 const { attrKr, types } = _resolveReserve(virtualDragon);
