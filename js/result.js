@@ -526,22 +526,37 @@ run: function() {
         regularDragons.forEach(dragon => {
             const dragonAttrKr = (spiritUnlock !== "off") ? (config.b1 || "") : (attrMap[dragon.attrKey] || dragon.attrKey);
 
-            if (spiritUnlock === "all" && dragon.type === "전체") {
-                let bestVval = 0, bestType = "체", bestMult = [0,0,0];
-                reserveTypesToTry.forEach(tryType => {
+            // 정령 해제: 예비 정령 속성/타입 통일 모드와 동일한 규칙 적용
+            if (spiritUnlock === "all" || spiritUnlock === "typeFixed") {
+                // 일반 용은 selectedTypes 없으므로 본인 type을 선택으로 간주, reserveAttr도 본인 속성
+                const virtualDragon = {
+                    reserveAttr: attrMap[dragon.attrKey] || dragon.attrKey,
+                    selectedTypes: (dragon.type && dragon.type !== "전체") ? [dragon.type] : reserveTypesToTry
+                };
+                const { attrKr, types } = _resolveReserve(virtualDragon);
+                const resolvedAttrKr = attrKr || dragonAttrKr;
+
+                // typeFixed: 타입 고정 (통일 규칙 무시) but 속성은 통일 적용
+                if (spiritUnlock === "typeFixed") {
+                    const mult = _calcMult(resolvedAttrKr, dragon.type);
+                    const v = _findBestVval(dragon, infinitePool, virtualAccs, vAllPens, mult);
+                    if (v > 0) candidates.push({ dN: dragon.name, vval: v, mult, isReserve: false, isAllType: false, isUnlocked: true });
+                    return;
+                }
+
+                // all: 타입/속성 통일 규칙대로
+                if (!types || types.length === 0) return;
+                let bestVval = 0, bestType = types[0], bestMult = [0,0,0];
+                types.forEach(tryType => {
                     const tryDragon = { ...dragon, type: tryType };
-                    const mult = _calcMult(dragonAttrKr, tryType);
+                    const mult = _calcMult(resolvedAttrKr, tryType);
                     const v = _findBestVval(tryDragon, infinitePool, virtualAccs, vAllPens, mult);
                     if (v > bestVval) { bestVval = v; bestType = tryType; bestMult = mult; }
                 });
                 if (bestVval > 0) {
                     dragon.type = bestType;
-                    candidates.push({ dN: dragon.name, vval: bestVval, mult: bestMult, isReserve: false, isAllType: true, isUnlocked: true });
+                    candidates.push({ dN: dragon.name, vval: bestVval, mult: bestMult, isReserve: false, isAllType: types.length > 1, isUnlocked: true });
                 }
-            } else if (spiritUnlock === "typeFixed") {
-                const mult = _calcMult(dragonAttrKr, dragon.type);
-                const v = _findBestVval(dragon, infinitePool, virtualAccs, vAllPens, mult);
-                if (v > 0) candidates.push({ dN: dragon.name, vval: v, mult, isReserve: false, isAllType: false, isUnlocked: true });
             } else {
                 const mult = _calcMult(dragonAttrKr, dragon.type);
                 const v = _findBestVval(dragon, infinitePool, virtualAccs, vAllPens, mult);
