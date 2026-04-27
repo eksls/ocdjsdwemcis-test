@@ -57,12 +57,20 @@ function createSlot(data = null, isReserve = false) {
   const name = document.createElement("input");
   name.className = "dragon-name";
   name.placeholder = isReserve ? "예비 정령" : "용 이름";
-name.addEventListener("input", triggerSave);
+  name.addEventListener("input", triggerSave);
+  
+  // 비활성화 체크박스 (체크하면 계산 제외)
+  const disableChk = document.createElement("input");
+  disableChk.type = "checkbox";
+  disableChk.className = "dragon-disabled";
+  disableChk.title = "계산 제외";
+  disableChk.style.cssText = "margin-right:4px; transform:scale(1.2); vertical-align:middle;";
+  disableChk.addEventListener("change", triggerSave);
   
   const s1 = createSpirit(data?.spiritStats?.[0], data?.spiritTypes?.[0]);
   const s2 = createSpirit(data?.spiritStats?.[1], data?.spiritTypes?.[1]);
 
-  row1.append(name);
+  row1.append(disableChk, name);
   row1.append(s1.querySelector(".spirit-stat"), s1.querySelector(".spirit-type"),
               s2.querySelector(".spirit-stat"), s2.querySelector(".spirit-type"));
 
@@ -160,6 +168,7 @@ name.addEventListener("input", triggerSave);
 
   if (data) {
     name.value = data.name || "";
+    if (disableChk) disableChk.checked = !!data.disabled;
     dStat.value = data.dStat || "9.0";
     bonus.value = data.bonus || "부가옵";
     if (isReserve) {
@@ -277,6 +286,7 @@ function saveDragonUI(){
             const bonusEl = slot.querySelector(".dragon-bonus");
             const attrEl = slot.querySelector(".dragon-reserve-attr");
             const typeEl = slot.querySelector(".dragon-type");
+            const disabledEl = slot.querySelector(".dragon-disabled");
             const isReserveSlot = !!togglesEl;
 
             const entry = {
@@ -285,7 +295,8 @@ function saveDragonUI(){
                 dStat: dStatEl?.value || "9.0",
                 bonus: bonusEl?.value || "부가옵",
                 spiritStats: sStats,
-                spiritTypes: sTypes
+                spiritTypes: sTypes,
+                disabled: !!disabledEl?.checked
             };
 
             if (isReserveSlot) {

@@ -424,8 +424,8 @@ run: function() {
 
         // ===== 일반 용 / 예비 정령 분리 =====
         const spiritUnlock = getV("spirit-unlock"); // "off" | "typeFixed" | "all"
-        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입");
-        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입");
+        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
         
         // 예비 정령 자동 이름 부여
         let rIdx = 1;
