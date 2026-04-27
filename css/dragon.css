@@ -13,18 +13,35 @@ select {
 
 /* 체크박스는 위 공통 input 스타일 영향에서 제외 (찌그러짐 방지) */
 input[type="checkbox"] {
-  height: auto;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px !important;
   padding: 0;
-  border: none;
-  background: transparent;
-  width: auto;
-  flex: 0 0 auto !important;
-  border-left: none !important;
-  margin: 0 4px 0 0;
-  transform: scale(1.3);
+  margin: 0 6px 0 0;
+  border: 1px solid #d1d5da;
+  border-radius: 4px;
+  border-left: 1px solid #d1d5da !important; /* row1 input 룰의 파란 border 무력화 */
+  background: #fff;
   cursor: pointer;
   vertical-align: middle;
-  accent-color: #dc3545; /* 체크 시 빨간색 — "제외" 의미 강조 */
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+}
+input[type="checkbox"]:checked {
+  background: #dc3545; /* 빨간색 — "제외" 의미 강조 */
+  border-color: #dc3545;
+}
+input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  width: 8px;
+  height: 14px;
+  border: solid #fff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg);
 }
 
 input:focus, select:focus {
