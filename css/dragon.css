@@ -56,6 +56,25 @@ select.dragon-reserve-attr {
   min-width: 70px;
 }
 
+/* 전체활성/전체해제 토글 버튼 */
+.header button.toggle-all-disabled {
+  background-color: #fff;
+  border: 1px solid #adb5bd;
+  font-weight: 600;
+  color: #495057;
+}
+.header button.toggle-all-disabled.is-active {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: #fff;
+}
+.header button.toggle-all-disabled:hover {
+  background-color: #e9ecef;
+}
+.header button.toggle-all-disabled.is-active:hover {
+  background-color: #c82333;
+}
+
 input:focus, select:focus {
   border-color: #007bff;
   outline: none;
