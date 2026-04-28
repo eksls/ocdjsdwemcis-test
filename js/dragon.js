@@ -213,14 +213,16 @@ ATTRS.forEach(([key, label]) => {
   toggleBtn.title = "이 속성의 모든 체크박스 일괄 토글";
   const updateToggleText = () => {
     const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
-    const allChecked = cbs.length > 0 && Array.from(cbs).every(c => c.checked);
-    toggleBtn.textContent = allChecked ? "전체해제" : "전체활성";
-    toggleBtn.classList.toggle("is-active", allChecked);
+    // 하나라도 체크돼 있으면 다음 클릭은 '전체해제'
+    const anyChecked = cbs.length > 0 && Array.from(cbs).some(c => c.checked);
+    toggleBtn.textContent = anyChecked ? "전체해제" : "전체활성";
+    toggleBtn.classList.toggle("is-active", anyChecked);
   };
   toggleBtn.onclick = () => {
     const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
-    const anyUnchecked = Array.from(cbs).some(c => !c.checked);
-    cbs.forEach(c => c.checked = anyUnchecked);
+    // 하나라도 체크돼 있으면 우선 '전체해제'(전부 끄기), 전부 꺼져있을 때만 '전체활성'(전부 켜기)
+    const anyChecked = Array.from(cbs).some(c => c.checked);
+    cbs.forEach(c => c.checked = !anyChecked);
     updateToggleText();
     triggerSave();
   };
@@ -274,14 +276,14 @@ ATTRS.forEach(([key, label]) => {
   toggleBtn.title = "예비 정령의 모든 체크박스 일괄 토글";
   const updateToggleText = () => {
     const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
-    const allChecked = cbs.length > 0 && Array.from(cbs).every(c => c.checked);
-    toggleBtn.textContent = allChecked ? "전체해제" : "전체활성";
-    toggleBtn.classList.toggle("is-active", allChecked);
+    const anyChecked = cbs.length > 0 && Array.from(cbs).some(c => c.checked);
+    toggleBtn.textContent = anyChecked ? "전체해제" : "전체활성";
+    toggleBtn.classList.toggle("is-active", anyChecked);
   };
   toggleBtn.onclick = () => {
     const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
-    const anyUnchecked = Array.from(cbs).some(c => !c.checked);
-    cbs.forEach(c => c.checked = anyUnchecked);
+    const anyChecked = Array.from(cbs).some(c => c.checked);
+    cbs.forEach(c => c.checked = !anyChecked);
     updateToggleText();
     triggerSave();
   };
