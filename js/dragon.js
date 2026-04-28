@@ -207,13 +207,36 @@ ATTRS.forEach(([key, label]) => {
   slotsDiv.dataset.key = key;
   slotsDiv.appendChild(createSlot());
 
+  // 전체활성/전체해제 토글 버튼
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "toggle-all-disabled";
+  toggleBtn.title = "이 속성의 모든 체크박스 일괄 토글";
+  const updateToggleText = () => {
+    const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
+    const allChecked = cbs.length > 0 && Array.from(cbs).every(c => c.checked);
+    toggleBtn.textContent = allChecked ? "전체해제" : "전체활성";
+    toggleBtn.classList.toggle("is-active", allChecked);
+  };
+  toggleBtn.onclick = () => {
+    const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
+    const anyUnchecked = Array.from(cbs).some(c => !c.checked);
+    cbs.forEach(c => c.checked = anyUnchecked);
+    updateToggleText();
+    triggerSave();
+  };
+  // 개별 체크박스가 바뀔 때 토글 버튼 텍스트 갱신
+  slotsDiv.addEventListener("change", (e) => {
+    if (e.target.classList && e.target.classList.contains("dragon-disabled")) updateToggleText();
+  });
+  slotsDiv._updateToggleText = updateToggleText;
+
   const addBtn = document.createElement("button");
   addBtn.textContent = "칸 추가";
-  addBtn.onclick = () => { if(slotsDiv.children.length < 30) { slotsDiv.appendChild(createSlot()); triggerSave(); } };
+  addBtn.onclick = () => { if(slotsDiv.children.length < 30) { slotsDiv.appendChild(createSlot()); triggerSave(); updateToggleText(); } };
 
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "칸 제거";
-  removeBtn.onclick = () => { if(slotsDiv.children.length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); } };
+  removeBtn.onclick = () => { if(slotsDiv.children.length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); updateToggleText(); } };
 
   const header = document.createElement("div");
   header.className = "header";
@@ -226,11 +249,12 @@ ATTRS.forEach(([key, label]) => {
     nameLabel.style.color = attrColors[label];
   }
   
-  header.append(nameLabel, addBtn, removeBtn);
+  header.append(nameLabel, addBtn, removeBtn, toggleBtn);
 
   attrDiv.appendChild(header);
   attrDiv.appendChild(slotsDiv);
   container.appendChild(attrDiv);
+  updateToggleText();
 });
 
 // 🔹 예비 정령 섹션
@@ -244,13 +268,35 @@ ATTRS.forEach(([key, label]) => {
   slotsDiv.dataset.key = "reserve";
   slotsDiv.appendChild(createSlot(null, true));
 
+  // 전체활성/전체해제 토글 버튼
+  const toggleBtn = document.createElement("button");
+  toggleBtn.className = "toggle-all-disabled";
+  toggleBtn.title = "예비 정령의 모든 체크박스 일괄 토글";
+  const updateToggleText = () => {
+    const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
+    const allChecked = cbs.length > 0 && Array.from(cbs).every(c => c.checked);
+    toggleBtn.textContent = allChecked ? "전체해제" : "전체활성";
+    toggleBtn.classList.toggle("is-active", allChecked);
+  };
+  toggleBtn.onclick = () => {
+    const cbs = slotsDiv.querySelectorAll(".dragon-disabled");
+    const anyUnchecked = Array.from(cbs).some(c => !c.checked);
+    cbs.forEach(c => c.checked = anyUnchecked);
+    updateToggleText();
+    triggerSave();
+  };
+  slotsDiv.addEventListener("change", (e) => {
+    if (e.target.classList && e.target.classList.contains("dragon-disabled")) updateToggleText();
+  });
+  slotsDiv._updateToggleText = updateToggleText;
+
   const addBtn = document.createElement("button");
   addBtn.textContent = "칸 추가";
-  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); triggerSave(); } };
+  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); triggerSave(); updateToggleText(); } };
 
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "칸 제거";
-  removeBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); } };
+  removeBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); updateToggleText(); } };
 
   const header = document.createElement("div");
   header.className = "header";
@@ -259,10 +305,11 @@ ATTRS.forEach(([key, label]) => {
   nameLabel.textContent = "예비 정령";
   nameLabel.style.color = "#e67e22";
 
-  header.append(nameLabel, addBtn, removeBtn);
+  header.append(nameLabel, addBtn, removeBtn, toggleBtn);
   reserveDiv.appendChild(header);
   reserveDiv.appendChild(slotsDiv);
   container.appendChild(reserveDiv);
+  updateToggleText();
 })();
 
 // 🔹 저장
@@ -336,6 +383,11 @@ function loadDragonUI(){
     if(reserveItems.length===0){ reserveParent.appendChild(createSlot(null, true)); }
     else{ reserveItems.forEach(item=>reserveParent.appendChild(createSlot(item, true))); }
   }
+
+  // 모든 토글 버튼 텍스트 갱신 (로드된 disabled 상태 반영)
+  document.querySelectorAll(".slots").forEach(div => {
+    if (typeof div._updateToggleText === "function") div._updateToggleText();
+  });
 }
 
 document.addEventListener("DOMContentLoaded", ()=>{ loadDragonUI(); });
