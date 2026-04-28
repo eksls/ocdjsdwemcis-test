@@ -57,11 +57,15 @@ select.dragon-reserve-attr {
 }
 
 /* 전체활성/전체해제 토글 버튼 */
+.header {
+  flex-wrap: wrap; /* 좁은 화면에서 버튼이 잘리지 않게 줄바꿈 허용 */
+}
 .header button.toggle-all-disabled {
   background-color: #fff;
   border: 1px solid #adb5bd;
   font-weight: 600;
   color: #495057;
+  white-space: nowrap;
 }
 .header button.toggle-all-disabled.is-active {
   background-color: #dc3545;
