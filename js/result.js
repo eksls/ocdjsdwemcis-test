@@ -423,11 +423,10 @@ run: function() {
         const prevPens = (useMaxPreview && maxPen) ? vAllPens : realPens;
 
         // ===== 일반 용 / 예비 정령 분리 =====
-        const spiritUnlock = getV("spirit-unlock"); // "off" | "typeFixed" | "all"
-        // 체크박스(disabled)는 예비정령(maxReserve > 0) 또는 정령해제(spiritUnlock !== "off") 모드일 때만 적용
-        const excludeDisabled = (maxReserve > 0) || (spiritUnlock !== "off");
-        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !(excludeDisabled && d.disabled));
-        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !(excludeDisabled && d.disabled));
+        const spiritUnlock = getV("spirit-unlock"); // "off" | "attrFixed" | "typeFixed" | "all"
+        // 체크박스(disabled)는 모드와 관계없이 항상 우선 적용 — 체크되어 있으면 무조건 계산 제외
+        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
         
         // 예비 정령 자동 이름 부여
         let rIdx = 1;

@@ -59,11 +59,11 @@ function createSlot(data = null, isReserve = false) {
   name.placeholder = isReserve ? "예비 정령" : "용 이름";
   name.addEventListener("input", triggerSave);
   
-  // 비활성화 체크박스 (체크하면 예비정령/정령해제 모드에서 계산 제외)
+  // 비활성화 체크박스 (체크하면 모든 계산에서 제외)
   const disableChk = document.createElement("input");
   disableChk.type = "checkbox";
   disableChk.className = "dragon-disabled";
-  disableChk.title = "예비정령 또는 정령해제 모드일 때 계산에서 제외";
+  disableChk.title = "계산에서 제외 (체크박스 우선 적용)";
   disableChk.addEventListener("change", triggerSave);
   
   const s1 = createSpirit(data?.spiritStats?.[0], data?.spiritTypes?.[0]);
