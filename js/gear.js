@@ -5,7 +5,7 @@ const ACCESSORY_VALUES = ["스탯",18,19,20];
 const ACCESSORY_ENCHANTS = ["인챈트","all","체","공","방"];
 const PENDANT_TYPES = ["off","달","태양"];
 const PENDANT_OPTIONS = ["옵션","체","공","방"];
-const GEM_LEVELS = [36,37,38,39,40];
+const GEM_LEVELS = [36,38,40,42,44];
 
 // 🔹 [신규] 10개 단위 구분선 업데이트 함수
 function updateDividers(containerId) {
