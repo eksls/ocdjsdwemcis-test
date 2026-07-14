@@ -48,7 +48,7 @@ const ResultEngine = (function() {
     function _calcGemTotalWithLevels(needed, type, gemPool) {
         let total = 0, remain = needed;
         let usedLevels = [];
-        for (let lvl = 40; lvl >= 36; lvl--) {
+        for (let lvl = 44; lvl >= 36; lvl -= 2) {
             if (remain <= 0) break;
             const available = gemPool[lvl][type];
             if (available > 0) {
@@ -83,7 +83,7 @@ const ResultEngine = (function() {
     // ★ 고속 계산 함수들 (로그/배열 생성 없이 vval만 반환)
     function _calcGemFast(needed, type, gemPool) {
         let total = 0, remain = needed;
-        for (let lvl = 40; lvl >= 36; lvl--) {
+        for (let lvl = 44; lvl >= 36; lvl -= 2) {
             if (remain <= 0) break;
             const take = Math.min(remain, gemPool[lvl][type]);
             if (take > 0) { total += take * DB.GEM_LEVEL_STATS[lvl][type]; remain -= take; }
@@ -376,7 +376,7 @@ run: function() {
         const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
 
         const pool = {};
-        [36, 37, 38, 39, 40].forEach((lvl, idx) => {
+        [36, 38, 40, 42, 44].forEach((lvl, idx) => {
             const g = gear.gems?.[idx] || { 체: 0, 공: 0, 방: 0 };
             pool[lvl] = { 체: parseInt(g.체)||0, 공: parseInt(g.공)||0, 방: parseInt(g.방)||0 };
         });
@@ -404,7 +404,7 @@ run: function() {
         ].map((p, i) => ({ ...p, uid: `v_pen_${i}` }));
 
         const statIdx = { "체": 0, "공": 1, "방": 2 };
-        const infinitePool = { 36: {체:99,공:99,방:99}, 37: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 39: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99} };
+        const infinitePool = { 36: {체:99,공:99,방:99}, 38: {체:99,공:99,방:99}, 40: {체:99,공:99,방:99}, 42: {체:99,공:99,방:99}, 44: {체:99,공:99,방:99} };
 
         // 최대 자원 모드별 자원셋 (자원 종류별 선택)
         const maxResType = getV("max-resource-type"); // "all"|"pen"|"acc"|"gem"|"pen+acc"|"pen+gem"|"acc+gem"
