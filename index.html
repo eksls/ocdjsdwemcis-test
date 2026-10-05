@@ -68,11 +68,11 @@
   <div class="tab" data-src="dragon.html">용 / 정령</div>
   <div class="tab" data-src="gear.html">장신구 / 팬던트 / 젬</div>
   <div class="tab" data-src="spirit-calc.html">정령 계산기</div>
-  <div class="tab" data-src="pve.html?mode=dealer&v=3">딜러 계산기</div>
-  <div class="tab" data-src="pve.html?mode=tank&v=3">탱커 계산기</div>
+  <div class="tab" data-src="pve.html?mode=dealer&v=4">딜러 계산기</div>
+  <div class="tab" data-src="pve.html?mode=tank&v=4">탱커 계산기</div>
   <div class="data-actions">
-    <button type="button" id="data-save" title="입력한 데이터 전체를 파일로 저장">저장하기</button>
-    <button type="button" id="data-load" title="저장한 파일에서 데이터 불러오기">불러오기</button>
+    <button type="button" id="data-save" title="용/정령, 장신구/팬던트/젬을 파일로 저장">저장하기</button>
+    <button type="button" id="data-load" title="저장한 파일에서 용/정령, 장신구/팬던트/젬 불러오기">불러오기</button>
     <button type="button" id="data-reset" class="danger" title="입력한 데이터 전부 지우기">초기화</button>
     <input type="file" id="data-file" accept=".json,application/json" hidden>
   </div>
@@ -95,7 +95,10 @@
 
   // ===== 데이터 저장 / 불러오기 / 초기화 =====
   // 이 계산기가 쓰는 저장값만 다룸 (같은 주소의 다른 사이트 데이터는 건드리지 않음)
+  // 초기화: 아래 접두어로 시작하는 전부 (비벨 결과, 딜러/탱커 계산기 포함)
   const DATA_PREFIXES = ["guild_", "dv1-"];
+  // 저장하기/불러오기: 용 / 정령 / 장신구 / 팬던트 / 젬만
+  const BACKUP_KEYS = ["guild_dragon_data", "guild_spirit_data", "guild_gear_data"];
   const BACKUP_TAG = "guild-calculator-backup";
 
   function isOurKey(k) {
@@ -134,7 +137,7 @@
   document.getElementById("data-save").onclick = () => {
     // 입력 직후 자동저장(0.3초 대기)이 끝나도록 잠깐 기다림
     setTimeout(() => {
-      const keys = ourKeys();
+      const keys = BACKUP_KEYS.filter(k => localStorage.getItem(k) !== null);
       if (!keys.length) { toast("저장할 데이터가 없습니다"); return; }
       const data = {};
       keys.forEach(k => { data[k] = localStorage.getItem(k); });
@@ -146,7 +149,7 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-      toast("저장했습니다 (" + keys.length + "개 항목)");
+      toast("용/정령, 장신구/팬던트/젬 저장 완료");
     }, 400);
   };
 
@@ -163,12 +166,12 @@
         alert("이 계산기에서 저장한 파일이 아닙니다.");
         return;
       }
-      const entries = Object.entries(payload.data).filter(([k, v]) => isOurKey(k) && typeof v === "string");
+      const entries = Object.entries(payload.data).filter(([k, v]) => BACKUP_KEYS.includes(k) && typeof v === "string");
       if (!entries.length) { alert("파일에 불러올 데이터가 없습니다."); return; }
       const when = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : "날짜 모름";
-      if (!confirm("지금 입력된 데이터를 지우고 이 파일로 바꿉니다.\n저장 시각: " + when + "\n계속할까요?")) return;
+      if (!confirm("지금 입력된 용/정령, 장신구/팬던트/젬을 이 파일 내용으로 바꿉니다.\n저장 시각: " + when + "\n계속할까요?")) return;
       withViewPaused(() => {
-        ourKeys().forEach(k => localStorage.removeItem(k));
+        BACKUP_KEYS.forEach(k => localStorage.removeItem(k));
         entries.forEach(([k, v]) => localStorage.setItem(k, v));
         toast("불러왔습니다");
       });
@@ -177,7 +180,7 @@
   };
 
   document.getElementById("data-reset").onclick = () => {
-    if (!confirm("비벨 결과, 용/정령, 장신구/팬던트/젬 등 입력한 데이터를 전부 지웁니다.\n먼저 [저장하기]로 백업해두는 걸 권합니다.\n정말 초기화할까요?")) return;
+    if (!confirm("비벨 결과, 용/정령, 장신구/팬던트/젬, 딜러/탱커 계산기까지 입력한 데이터를 전부 지웁니다.\n정말 초기화할까요?")) return;
     withViewPaused(() => {
       ourKeys().forEach(k => localStorage.removeItem(k));
       toast("초기화했습니다");
