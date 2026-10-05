@@ -3,3 +3,6 @@
 
 /* 탭 안에서 바로 계산기만 보이도록: 보스/모드 선택으로 돌아가는 버튼 숨김 */
 .bo-back-button{display:none!important}
+
+/* 제작자 표시 숨김 (개인용) */
+.app-credit{display:none!important}
