@@ -1,5 +1,45 @@
 /* 데이터(CSV), 계산 워커, 시작 화면 설정 */
 
+/* 딜러/탱커 계산기 입력값 자동 저장 (새로고침해도 유지) */
+(function(){
+  var COUNT = 35;              // 계산기 설정 칸 개수 (원본 빌드 기준)
+  var SKIP = { 33: 1, 34: 1 }; // 결과 펼침 상태, 복사 알림은 저장 안 함
+  var S = { mode: 'dealer', i: 0, cur: [], timer: null, loaded: null };
+  function key(mode){ return 'dv1-pve-settings-v1-' + mode; }
+  function load(mode){
+    try {
+      var raw = localStorage.getItem(key(mode));
+      if (!raw) return null;
+      var d = JSON.parse(raw);
+      return d && d.count === COUNT && Array.isArray(d.values) ? d.values : null;
+    } catch (e) { return null; }
+  }
+  function save(){
+    S.timer = null;
+    try {
+      var values = [];
+      for (var i = 0; i < COUNT; i++) values.push(SKIP[i] ? null : (S.cur[i] === undefined ? null : S.cur[i]));
+      localStorage.setItem(key(S.mode), JSON.stringify({ count: COUNT, savedAt: Date.now(), values: values }));
+    } catch (e) {}
+  }
+  window.__dvPSReset = function(mode){
+    if (mode !== S.mode || S.loaded === null) { S.mode = mode; S.loaded = load(mode) || false; }
+    S.i = 0;
+  };
+  window.__dvPS = function(React, init){
+    var idx = S.i++;
+    var saved = S.loaded;
+    var st = React.useState(function(){
+      if (saved && !SKIP[idx] && idx < saved.length && saved[idx] !== null && saved[idx] !== undefined) return saved[idx];
+      return typeof init === 'function' ? init() : init;
+    });
+    S.cur[idx] = st[0];
+    if (idx === COUNT - 1) { if (S.timer) clearTimeout(S.timer); S.timer = setTimeout(save, 250); }
+    return st;
+  };
+  window.addEventListener('pagehide', function(){ if (S.timer) { clearTimeout(S.timer); save(); } });
+})();
+
 (function(){
   var mode = 'dealer';
   try { var m = new URLSearchParams(location.search).get('mode'); if (m === 'tank' || m === 'dealer') mode = m; } catch (e) {}
