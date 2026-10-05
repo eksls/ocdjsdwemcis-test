@@ -20,6 +20,40 @@
     color: #000;
     font-weight: bold;
   }
+  .data-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+  }
+  .data-actions button {
+    background: #333;
+    color: #ddd;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .data-actions button:hover { background: #444; color: #fff; }
+  .data-actions button.danger { border-color: #844; color: #f99; }
+  .data-actions button.danger:hover { background: #522; color: #fff; }
+  #data-toast {
+    position: fixed;
+    top: 50px;
+    right: 12px;
+    background: #222;
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity .2s;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #data-toast.show { opacity: 1; }
   iframe {
     width: 100%;
     height: calc(100vh - 42px);
@@ -36,9 +70,16 @@
   <div class="tab" data-src="spirit-calc.html">정령 계산기</div>
   <div class="tab" data-src="pve.html?mode=dealer">딜러 계산기</div>
   <div class="tab" data-src="pve.html?mode=tank">탱커 계산기</div>
+  <div class="data-actions">
+    <button type="button" id="data-save" title="입력한 데이터 전체를 파일로 저장">저장하기</button>
+    <button type="button" id="data-load" title="저장한 파일에서 데이터 불러오기">불러오기</button>
+    <button type="button" id="data-reset" class="danger" title="입력한 데이터 전부 지우기">초기화</button>
+    <input type="file" id="data-file" accept=".json,application/json" hidden>
+  </div>
 </div>
 
 <iframe id="view" src="result.html"></iframe>
+<div id="data-toast"></div>
 
 <script>
   const tabs = document.querySelectorAll(".tab");
@@ -51,6 +92,97 @@
       iframe.src = tab.dataset.src;
     };
   });
+
+  // ===== 데이터 저장 / 불러오기 / 초기화 =====
+  // 이 계산기가 쓰는 저장값만 다룸 (같은 주소의 다른 사이트 데이터는 건드리지 않음)
+  const DATA_PREFIXES = ["guild_", "dv1-"];
+  const BACKUP_TAG = "guild-calculator-backup";
+
+  function isOurKey(k) {
+    return DATA_PREFIXES.some(p => k.startsWith(p));
+  }
+  function ourKeys() {
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && isOurKey(k)) keys.push(k);
+    }
+    return keys;
+  }
+  function toast(msg) {
+    const t = document.getElementById("data-toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => t.classList.remove("show"), 2200);
+  }
+  function stamp() {
+    const d = new Date(), z = n => String(n).padStart(2, "0");
+    return d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "-" + z(d.getHours()) + z(d.getMinutes());
+  }
+  // 현재 탭을 잠깐 비워서 입력 중이던 자동저장이 덮어쓰지 않게 한 뒤 작업하고 다시 띄움
+  function withViewPaused(work) {
+    const src = iframe.getAttribute("src");
+    const resume = () => {
+      iframe.removeEventListener("load", resume);
+      try { work(); } finally { iframe.src = src; }
+    };
+    iframe.addEventListener("load", resume);
+    iframe.src = "about:blank";
+  }
+
+  document.getElementById("data-save").onclick = () => {
+    // 입력 직후 자동저장(0.3초 대기)이 끝나도록 잠깐 기다림
+    setTimeout(() => {
+      const keys = ourKeys();
+      if (!keys.length) { toast("저장할 데이터가 없습니다"); return; }
+      const data = {};
+      keys.forEach(k => { data[k] = localStorage.getItem(k); });
+      const payload = { type: BACKUP_TAG, version: 1, savedAt: new Date().toISOString(), data };
+      const blob = new Blob([JSON.stringify(payload, null, 1)], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "길드전계산기-" + stamp() + ".json";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast("저장했습니다 (" + keys.length + "개 항목)");
+    }, 400);
+  };
+
+  const fileInput = document.getElementById("data-file");
+  document.getElementById("data-load").onclick = () => { fileInput.value = ""; fileInput.click(); };
+  fileInput.onchange = () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let payload;
+      try { payload = JSON.parse(reader.result); } catch (e) { payload = null; }
+      if (!payload || payload.type !== BACKUP_TAG || !payload.data || typeof payload.data !== "object") {
+        alert("이 계산기에서 저장한 파일이 아닙니다.");
+        return;
+      }
+      const entries = Object.entries(payload.data).filter(([k, v]) => isOurKey(k) && typeof v === "string");
+      if (!entries.length) { alert("파일에 불러올 데이터가 없습니다."); return; }
+      const when = payload.savedAt ? new Date(payload.savedAt).toLocaleString() : "날짜 모름";
+      if (!confirm("지금 입력된 데이터를 지우고 이 파일로 바꿉니다.\n저장 시각: " + when + "\n계속할까요?")) return;
+      withViewPaused(() => {
+        ourKeys().forEach(k => localStorage.removeItem(k));
+        entries.forEach(([k, v]) => localStorage.setItem(k, v));
+        toast("불러왔습니다");
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  document.getElementById("data-reset").onclick = () => {
+    if (!confirm("비벨 결과, 용/정령, 장신구/팬던트/젬 등 입력한 데이터를 전부 지웁니다.\n먼저 [저장하기]로 백업해두는 걸 권합니다.\n정말 초기화할까요?")) return;
+    withViewPaused(() => {
+      ourKeys().forEach(k => localStorage.removeItem(k));
+      toast("초기화했습니다");
+    });
+  };
 </script>
 
 </body>
