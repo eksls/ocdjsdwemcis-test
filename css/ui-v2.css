@@ -142,7 +142,7 @@ html.ui-v2 .v2-panel {
 html.ui-v2 body:has(> .tabs) { max-width: none; padding: 0; }
 
 html.ui-v2 .tabs {
-  position: sticky; top: 0; z-index: 50;
+  position: -webkit-sticky; position: sticky; top: 0; z-index: 50;
   display: grid !important;
   grid-template-columns: 1fr auto auto;
   grid-template-areas:
@@ -289,9 +289,10 @@ html.ui-v2 #result-container {
 html.ui-v2 #result-container .container.result-card {
   border: 0 !important; padding: 0 !important; min-height: 0 !important; background: none;
 }
-/* 계산 전 빈 칸 대신 안내 한 줄 */
-html.ui-v2 #result-container .result-card:not(:has(.rc)) { display: none; }
-html.ui-v2 #result-container:not(:has(.rc))::before {
+/* 계산 전 "-" 자리표시 칸만 숨기고 안내 한 줄을 보여줌.
+ * 결과가 그려지면(새 형식이든, 캐시된 옛 result.js 형식이든) 자리표시가 사라지므로 카드가 항상 보임 */
+html.ui-v2 #result-container .result-card:has(> .vval-display) { display: none; }
+html.ui-v2 #result-container:has(> .result-card > .vval-display)::before {
   content: "최적 조합 계산하기를 누르면 추천 3마리가 여기에 나옵니다.";
   display: block; padding: 22px 16px; text-align: center;
   color: var(--ink-3); font-size: 14px;
