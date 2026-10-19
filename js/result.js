@@ -461,6 +461,7 @@ run: function() {
                     isReserve: !!meta.flags.isReserve,
                     isAllType: !!meta.flags.isAllType,
                     isUnlocked: !!meta.flags.isUnlocked,
+                    spiritInfo: { stats: src.spiritStats || [], types: src.spiritTypes || [], bonus: src.bonus || "" },
                     gems: { h: m.gemLevels[0].length, a: m.gemLevels[1].length, d: m.gemLevels[2].length, details: res.gemLevels },
                     raw: { base: v.base, spirit, ctx }
                 };
@@ -544,8 +545,106 @@ run: function() {
 document.addEventListener("DOMContentLoaded", function() {
     const btn = document.getElementById("calc-btn");
     
+    const IS_V2 = document.documentElement.classList.contains("ui-v2");
+    const escHtml = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    // ===== 새 디자인(v2) 결과 카드 =====
+    function renderV2(results, maxResource, maxResType) {
+        const isMaxResult = (maxResource === "result" || maxResource === "all");
+        const maxResLabel = {"all":"","pen":"팬던트","acc":"장신구","gem":"젬","pen+acc":"팬던트+장신구","pen+gem":"팬던트+젬","acc+gem":"장신구+젬"};
+        const resTypeTag = (type) => (!type || type === "all") ? "" : ": " + (maxResLabel[type] || type);
+        const STAT_CLASS = { "체": "hp", "공": "atk", "방": "def" };
+        const SP_PLUS = [54, 60, 66, 120], SP_PCT = [24, 28, 32, 40];
+        const n = (v) => Math.floor(v || 0).toLocaleString();
+        const M = (v) => Math.floor((v || 0) / 1000000).toLocaleString() + "M";
+
+        const spiritHtml = (res) => {
+            let info = res.spiritInfo;
+            if (!info) {
+                try {
+                    const d = (JSON.parse(localStorage.getItem("guild_dragon_data")) || []).find(x => x.name === res.dN);
+                    if (d) info = { stats: d.spiritStats || [], types: d.spiritTypes || [], bonus: d.bonus || "" };
+                } catch (e) {}
+            }
+            if (!info) return "";
+            const parts = [];
+            for (let i = 0; i < 4; i++) {
+                const st = info.stats[i];
+                if (!STAT_CLASS[st]) continue;
+                const txt = info.types[i] === "+" ? `${st}+${SP_PLUS[i] * (st === "체" ? 4 : 1)}` : `${st} ${SP_PCT[i]}%`;
+                parts.push(`<span class="sv sv-${STAT_CLASS[st]}">${txt}</span>`);
+            }
+            const BONUS = { "체": "체+40", "공": "공+10", "방": "방+10" };
+            const bonus = BONUS[info.bonus] ? `<span class="sub">부가 ${BONUS[info.bonus]}</span>` : "";
+            if (!parts.length && !bonus) return "";
+            return `<div class="rc-row"><span class="rc-k">정령</span><span class="rc-v">${parts.join("")}${bonus}</span></div>`;
+        };
+        const gemHtml = (res, key, kr) => {
+            const count = res.gems?.[key] || 0;
+            const lv = res.gems?.details?.[key] || [];
+            return `<span class="gem gem-${STAT_CLASS[kr]}${count ? "" : " is-zero"}"><b>${kr} ${count}</b>${lv.length ? `<small>${lv.join(",")}</small>` : ""}</span>`;
+        };
+
+        [1,2,3].forEach(i => { const el = document.getElementById(`result${i}`); if (el) el.innerHTML = ""; });
+
+        results.forEach((res, i) => {
+            const el = document.getElementById(`result${i+1}`);
+            if (!el) return;
+            const maxResTag = isMaxResult ? `최대자원${resTypeTag(maxResType)}` : "";
+            const prevResTag = (res.buffPreview && res.buffPreview.isMax) ? `최대자원${resTypeTag(res.buffPreview.maxResType)}` : "";
+            const accText = res.accN === "없음" ? `<span class="sub">없음</span>`
+                : `${escHtml(res.accN)} <span class="sub">${escHtml(res.accV)}%</span>${res.eN ? ` <span class="enc enc-${STAT_CLASS[res.eN] || "none"}">${escHtml(res.eN)}</span>` : ""}`;
+            const penText = res.penN === "없음" ? `<span class="sub">없음</span>`
+                : `${escHtml(res.penN)} <span class="sub">${escHtml(res.penDetails)}</span>`;
+            const bp = res.buffPreview;
+            const tags = [res.dA, res.dT, res.dS].filter(Boolean).map(t => `<span class="chip">${escHtml(t)}</span>`).join("");
+            el.innerHTML = `
+            <article class="rc">
+                <header class="rc-head">
+                    <span class="rc-rank">${i + 1}순위</span>
+                    <h3 class="rc-name">${escHtml(res.dN)}</h3>
+                    <div class="rc-tags">${tags}${res.isReserve ? '<span class="chip chip-reserve">예비</span>' : ""}${res.isUnlocked ? '<span class="chip chip-unlock">해제</span>' : ""}</div>
+                </header>
+                <div class="rc-setup">
+                    ${spiritHtml(res)}
+                    <div class="rc-row"><span class="rc-k">장신구</span><span class="rc-v">${accText}</span></div>
+                    <div class="rc-row"><span class="rc-k">팬던트</span><span class="rc-v">${penText}</span></div>
+                    <div class="rc-row"><span class="rc-k">젬</span><span class="rc-v rc-gems">${gemHtml(res, "h", "체")}${gemHtml(res, "a", "공")}${gemHtml(res, "d", "방")}</span></div>
+                </div>
+                <div class="rc-stats">
+                    <div class="st st-hp"><span>체력</span><b>${n(res.hp)}</b></div>
+                    <div class="st st-atk"><span>공격</span><b>${n(res.atk)}</b></div>
+                    <div class="st st-def"><span>방어</span><b>${n(res.def)}</b></div>
+                </div>
+                <div class="rc-score">
+                    <span class="rc-score-label">최종 비벨${maxResTag ? ` <em>${maxResTag}</em>` : ""}</span>
+                    <b class="rc-vval">${n(res.vval)}</b>
+                    <span class="rc-eval">eval: ${((res.hp || 0) + (res.atk || 0) * 4 + (res.def || 0) * 4).toLocaleString()}</span>
+                </div>
+                ${bp ? `
+                <div class="rc-preview">
+                    <span class="rc-preview-title">버프 참고${prevResTag ? ` <em>${prevResTag}</em>` : ""}</span>
+                    <span>2벞 <small>${bp.best2.label}${bp.showType ? `, ${bp.best2.type}` : ""}</small> <b>${M(bp.best2.vval)}</b></span>
+                    <span>1벞 <small>${bp.best1.label}${bp.showType ? `, ${bp.best1.type}` : ""}</small> <b>${M(bp.best1.vval)}</b></span>
+                    <span>0벞${bp.showType ? ` <small>${bp.type0}</small>` : ""} <b>${M(bp.vval0)}</b></span>
+                </div>` : ""}
+            </article>`;
+        });
+
+        const totalVval = results.reduce((sum, res) => sum + (res.vval || 0), 0);
+        const container = document.getElementById("result-container");
+        const oldTotal = document.getElementById("team-total-vval");
+        if (oldTotal) oldTotal.remove();
+        const totalDiv = document.createElement("div");
+        totalDiv.id = "team-total-vval";
+        totalDiv.className = "team-total";
+        totalDiv.innerHTML = `<span class="team-total-label">팀 총합 비벨</span><b class="team-total-value">${n(totalVval)}</b>`;
+        if (container) container.appendChild(totalDiv);
+    }
+
     function render(results, maxResource, maxResType) {
         if(!results) return;
+        if (IS_V2) return renderV2(results, maxResource, maxResType);
         const isMaxResult = (maxResource === "result" || maxResource === "all");
         const maxResLabel = {"all":"","pen":"팬던트","acc":"장신구","gem":"젬","pen+acc":"팬던트+장신구","pen+gem":"팬던트+젬","acc+gem":"장신구+젬"};
         const resTypeTag = (type) => (!type || type === "all") ? "" : ": " + (maxResLabel[type] || type);
@@ -585,6 +684,33 @@ document.addEventListener("DOMContentLoaded", function() {
                 return `<span style="font-size:10px; color:#7f8c8d;">(${levels.join(',')})</span>`;
             };
 
+            // 정령: 슬롯별 스탯·수치 + 부가옵 (예전에 저장된 결과는 내 용 데이터에서 이름으로 찾아 표시)
+            const formatSpirit = () => {
+                let info = res.spiritInfo;
+                if (!info) {
+                    try {
+                        const d = (JSON.parse(localStorage.getItem("guild_dragon_data")) || []).find(x => x.name === res.dN);
+                        if (d) info = { stats: d.spiritStats || [], types: d.spiritTypes || [], bonus: d.bonus || "" };
+                    } catch (e) {}
+                }
+                if (!info) return "";
+                const SP_PLUS = [54, 60, 66, 120], SP_PCT = [24, 28, 32, 40];
+                const COL = { "체": "#2980b9", "공": "#c0392b", "방": "#27ae60" };
+                const parts = [];
+                for (let i = 0; i < 4; i++) {
+                    const st = info.stats[i];
+                    if (!COL[st]) continue;
+                    const txt = info.types[i] === "+"
+                        ? `${st}+${SP_PLUS[i] * (st === "체" ? 4 : 1)}`
+                        : `${st} ${SP_PCT[i]}%`;
+                    parts.push(`<span style="color:${COL[st]};">${txt}</span>`);
+                }
+                const BONUS = { "체": "체+40", "공": "공+10", "방": "방+10" };
+                const bonus = BONUS[info.bonus] ? ` <span style="font-size:11px; color:#95a5a6;">(부가 ${BONUS[info.bonus]})</span>` : "";
+                if (!parts.length && !bonus) return "";
+                return `• <b>정령:</b> ${parts.join(" · ")}${bonus}<br>`;
+            };
+
             // ★ 오류 수정 부분: (res.hp || 0).toLocaleString() 형태로 변경 ★
             el.innerHTML = `
             <div style="border:2px solid #007bff; padding:15px; border-radius:12px; background:#fff; text-align:left; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom:15px;">
@@ -598,6 +724,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 
                 <div style="font-size:13px; line-height:1.6; margin-bottom:10px;">
                     <b style="color:#555;">[세팅 정보]</b><br>
+                    ${formatSpirit()}
                     • <b>장신구:</b> ${res.accN === "없음" ? "없음" : `${res.accN} (${res.accV}%)${res.eN ? ` /
                       <span style="color:${getEnchantColor(res.eN)}; font-weight:bold;">
                         ${res.eN}
@@ -629,6 +756,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 <div style="text-align:center; margin:10px 0; background:#f1f8ff; padding:12px; border-radius:10px; border:1px solid #d1e9ff;">
                     <span style="font-size:11px; color:#666;">최종 비벨${maxResTag ? ` <span style="color:#c0392b;">${maxResTag}</span>` : ''} </span><br>
                     <b style="font-size:24px; color:#2c3e50; letter-spacing:-0.5px;">${Math.floor(res.vval || 0).toLocaleString()}</b>
+                    <div style="font-size:11px; color:#888; margin-top:2px;">eval: ${((res.hp || 0) + (res.atk || 0) * 4 + (res.def || 0) * 4).toLocaleString()}</div>
                 </div>
                 ${res.buffPreview ? `
                 <div style="text-align:center; font-size:10px; color:#888; line-height:1.7; background:#fef9f0; padding:8px; border-radius:8px; border:1px solid #f0e0c0; margin-bottom:8px;">
@@ -703,7 +831,11 @@ ${(res.fullLog || []).join('\n')}
     if(btn) {
         btn.addEventListener("click", function() {
             const res = ResultEngine.run();
-            if(res.length > 0) render(res, document.getElementById("max-resource").value, document.getElementById("max-resource-type").value);
+            if(res.length > 0) {
+                render(res, document.getElementById("max-resource").value, document.getElementById("max-resource-type").value);
+                // 새 디자인: 계산이 끝나면 결과 위치로 이동
+                if (IS_V2 && window.GUILD_UI_V2) window.GUILD_UI_V2.scrollTo(document.querySelector(".result-title"));
+            }
             else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
         });
     }

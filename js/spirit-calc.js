@@ -63,6 +63,9 @@ function generateAllSpiritCombos() {
 const ALL_SPIRIT_COMBOS = generateAllSpiritCombos();
 console.log(`정령 고유 조합: ${ALL_SPIRIT_COMBOS.length}개`);
 
+// x에 p% 를 더하고 버림 (정수 연산이라 부동소수 오차 없음: 100×1.13 이 112로 깎이던 문제 수정)
+function pctUp(x, p) { return x + Math.floor(x * p / 100); }
+
 // 고속 Vval 계산 (정령 최적화용, 로그 없음)
 function calcVvalFast(combo, spiritStat, bonus) {
     let [hp, atk, def] = dragonBaseStats[combo.type][combo.stat];
@@ -71,17 +74,17 @@ function calcVvalFast(combo, spiritStat, bonus) {
     atk += gemStats.공[lvl] * combo.gems.공 + potion[1];
     def += gemStats.방[lvl] * combo.gems.방 + potion[2];
     const aP = combo.accessoryOpt, eP = combo.enchantOpt;
-    hp = Math.floor(hp * (1 + (aP[0]+eP[0])/100));
-    atk = Math.floor(atk * (1 + (aP[1]+eP[1])/100));
-    def = Math.floor(def * (1 + (aP[2]+eP[2])/100));
+    hp = pctUp(hp, aP[0]+eP[0]);
+    atk = pctUp(atk, aP[1]+eP[1]);
+    def = pctUp(def, aP[2]+eP[2]);
     hp += spiritStat.plus[0]; atk += spiritStat.plus[1]; def += spiritStat.plus[2];
-    hp = Math.floor(hp * (1 + spiritStat.percent[0]/100));
-    atk = Math.floor(atk * (1 + spiritStat.percent[1]/100));
-    def = Math.floor(def * (1 + spiritStat.percent[2]/100));
+    hp = pctUp(hp, spiritStat.percent[0]);
+    atk = pctUp(atk, spiritStat.percent[1]);
+    def = pctUp(def, spiritStat.percent[2]);
     if(bonus==="체") hp+=40; else if(bonus==="공") atk+=10; else if(bonus==="방") def+=10;
-    hp = Math.floor(hp * (1 + combo.pendantOpt[0]/100));
-    atk = Math.floor(atk * (1 + combo.pendantOpt[1]/100));
-    def = Math.floor(def * (1 + combo.pendantOpt[2]/100));
+    hp = pctUp(hp, combo.pendantOpt[0]);
+    atk = pctUp(atk, combo.pendantOpt[1]);
+    def = pctUp(def, combo.pendantOpt[2]);
     hp += 240; atk += 60; def += 60;
     const bMap = {"체체":["체","체"],"공공":["공","공"],"방방":["방","방"],"체공":["체","공"],"체방":["체","방"],"공방":["공","방"],"체":["체"],"공":["공"],"방":["방"],"버프 없음":[]};
     const bs = bMap[combo.buff] || [];
@@ -516,9 +519,9 @@ log.push(
   `인챈트: [체${enchPct[0]}%, 공${enchPct[1]}%, 방${enchPct[2]}%]`
 );
 
-base체 = Math.floor(base체 * (1 + (accPct[0] + enchPct[0]) / 100));
-base공 = Math.floor(base공 * (1 + (accPct[1] + enchPct[1]) / 100));
-base방 = Math.floor(base방 * (1 + (accPct[2] + enchPct[2]) / 100));
+base체 = pctUp(base체, accPct[0] + enchPct[0]);
+base공 = pctUp(base공, accPct[1] + enchPct[1]);
+base방 = pctUp(base방, accPct[2] + enchPct[2]);
 
 log.push(`장신구+인챈트 적용 → 체${base체}, 공${base공}, 방${base방}`);
 
@@ -544,9 +547,9 @@ base체 += spiritStat.plus[0];
 base공 += spiritStat.plus[1];
 base방 += spiritStat.plus[2];
 
-base체 = Math.floor(base체 * (1 + spiritStat.percent[0]/100));
-base공 = Math.floor(base공 * (1 + spiritStat.percent[1]/100));
-base방 = Math.floor(base방 * (1 + spiritStat.percent[2]/100));
+base체 = pctUp(base체, spiritStat.percent[0]);
+base공 = pctUp(base공, spiritStat.percent[1]);
+base방 = pctUp(base방, spiritStat.percent[2]);
 
 // 정령 부가옵션 (체40, 공10, 방10) - 체크 안 되었을 때만 적용
 if (!isSpiritDisabled) {
@@ -561,9 +564,9 @@ log.push(
   `[체${combo.pendantOpt[0]}%, 공${combo.pendantOpt[1]}%, 방${combo.pendantOpt[2]}%]`
 );
 
-base체 = Math.floor(base체 * (1 + combo.pendantOpt[0] / 100));
-base공 = Math.floor(base공 * (1 + combo.pendantOpt[1] / 100));
-base방 = Math.floor(base방 * (1 + combo.pendantOpt[2] / 100));
+base체 = pctUp(base체, combo.pendantOpt[0]);
+base공 = pctUp(base공, combo.pendantOpt[1]);
+base방 = pctUp(base방, combo.pendantOpt[2]);
 
 log.push(`팬던트 적용 → 체${base체}, 공${base공}, 방${base방}`);
 
@@ -722,6 +725,114 @@ function formatRow(b){
 }
 
 
+
+// ===========================
+// 정령 최적화 (정확해)
+// ===========================
+// 정령 슬롯 4칸은 각각 (체/공/방) × (+/%) 중 하나, 부가옵은 체/공/방 중 하나.
+// 핵심: "어느 슬롯을 어느 스탯에 줄지"가 정해지면, 각 스탯 안에서 +/% 선택은 그 스탯 값만 바꾸므로
+//       스탯별로 따로 최대화하면 된다 (곱의 각 항이 양수이고 서로 독립).
+//   → 슬롯 배정 3^4 = 81가지 × 부가옵 3가지 = 243가지만 보면 3,834가지 정령 전부를 본 것과 같다.
+// 최소 스탯 조건도 스탯별 조건이라 그대로 정확히 적용된다.
+// 모든 장비 옵션에 대해 이 계산을 하므로 (상위 1000개 자르기 없음) 결과 표 전체가 정확한 값이다.
+const SPIRIT_PCT_MAP = [24, 28, 32, 40];
+const SPIRIT_PLUS_MAP = [54, 60, 66, 120];
+const SPIRIT_BONUS_ADD = [40, 10, 10];
+const STAT_KR = ["체", "공", "방"];
+// 81가지 슬롯 배정: owner[i] = 슬롯 i 를 받는 스탯, mask[s] = 스탯 s 가 받는 슬롯들
+const SLOT_ASSIGNMENTS = (() => {
+    const out = [];
+    for (let c = 0; c < 81; c++) {
+        const owner = [], mask = [0, 0, 0];
+        let q = c;
+        for (let i = 0; i < 4; i++) { const st = q % 3; q = Math.floor(q / 3); owner.push(st); mask[st] |= (1 << i); }
+        out.push({ owner, mask });
+    }
+    return out;
+})();
+
+function optimizeSpiritExact(optionPool, minStats) {
+    const mins = [minStats.hp || 0, minStats.atk || 0, minStats.def || 0];
+    // 스탯 하나의 (정령 전 값, 팬던트%, 버프 추가값)이 같으면 표를 공유
+    const tableCache = new Map();
+    function statTable(s, x, pen, buffAdd) {
+        const key = s + "|" + x + "|" + pen + "|" + buffAdd;
+        let t = tableCache.get(key);
+        if (t) return t;
+        // t.val[b][mask] = 그 스탯이 mask 슬롯들을 받고 부가옵(b)일 때 최대 스탯, t.typ[b][mask] = 그때 +/% 선택(비트=1 이면 +)
+        t = { val: [new Array(16), new Array(16)], typ: [new Array(16), new Array(16)] };
+        for (let b = 0; b < 2; b++) for (let m = 0; m < 16; m++) {
+            let best = -1, bestT = 0;
+            for (let tp = 0; tp < 16; tp++) {
+                if ((tp & ~m) !== 0) continue;           // mask 밖 슬롯은 무시
+                let plus = 0, pct = 0;
+                for (let i = 0; i < 4; i++) if (m & (1 << i)) {
+                    if (tp & (1 << i)) plus += SPIRIT_PLUS_MAP[i] * (s === 0 ? 4 : 1); else pct += SPIRIT_PCT_MAP[i];
+                }
+                let v = pctUp(x + plus, pct);
+                if (b) v += SPIRIT_BONUS_ADD[s];
+                v = pctUp(v, pen) + collection[s] + buffAdd;
+                if (v > best) { best = v; bestT = tp; }
+            }
+            t.val[b][m] = best >= mins[s] ? best : -1;  // 최소 스탯 미달이면 불가
+            t.typ[b][m] = bestT;
+        }
+        t.id = tableCache.size;
+        tableCache.set(key, t);
+        return t;
+    }
+    // 세 스탯 표가 주어졌을 때: 슬롯 배정 81가지 × 부가옵 3가지 중 최대
+    function bestSpiritFor(tabs) {
+        let best = -1, bestA = null, bestB = -1;
+        for (const a of SLOT_ASSIGNMENTS) {
+            for (let bs = 0; bs < 3; bs++) {
+                const h = tabs[0].val[bs === 0 ? 1 : 0][a.mask[0]], at = tabs[1].val[bs === 1 ? 1 : 0][a.mask[1]], d = tabs[2].val[bs === 2 ? 1 : 0][a.mask[2]];
+                if (h < 0 || at < 0 || d < 0) continue;
+                const v = h * at * d;
+                if (v > best) { best = v; bestA = a; bestB = bs; }
+            }
+        }
+        return { best, bestA, bestB };
+    }
+    const tripleMemo = new Map();
+    const BUFF_LIST = {"체체":["체","체"],"공공":["공","공"],"방방":["방","방"],"체공":["체","공"],"체방":["체","방"],"공방":["공","방"],"체":["체"],"공":["공"],"방":["방"],"버프 없음":[]};
+    const results = [];
+    for (const c of optionPool) {
+        const base = dragonBaseStats[c.type][c.stat];
+        const gemAdd = [gemStats.체[c.gemLevel] * c.gems.체, gemStats.공[c.gemLevel] * c.gems.공, gemStats.방[c.gemLevel] * c.gems.방];
+        const buffAdd = [0, 0, 0];
+        (BUFF_LIST[c.buff] || []).forEach(b => { const si = STAT_KR.indexOf(b); buffAdd[si] += Math.floor(base[si] * 0.2); });
+        const tabs = [0, 1, 2].map(s => statTable(s, pctUp(base[s] + gemAdd[s] + potion[s], c.accessoryOpt[s] + c.enchantOpt[s]), c.pendantOpt[s], buffAdd[s]));
+        // 세 스탯 표 조합이 같은 옵션은 최적 정령도 같으므로 재사용
+        const memoKey = tabs[0].id + "," + tabs[1].id + "," + tabs[2].id;
+        let memo = tripleMemo.get(memoKey);
+        if (!memo) { memo = bestSpiritFor(tabs); tripleMemo.set(memoKey, memo); }
+        const best = memo.best, bestA = memo.bestA, bestB = memo.bestB;
+        if (best < 0) continue;  // 최소 스탯을 만족하는 정령이 없음
+        // 정령 구성 복원 (슬롯 순서대로)
+        const plus = [0, 0, 0], percent = [0, 0, 0], label = [];
+        for (let i = 0; i < 4; i++) {
+            const st = bestA.owner[i];
+            const typ = tabs[st].typ[st === bestB ? 1 : 0][bestA.mask[st]];
+            const isPlus = (typ & (1 << i)) !== 0;
+            if (isPlus) plus[st] += SPIRIT_PLUS_MAP[i] * (st === 0 ? 4 : 1); else percent[st] += SPIRIT_PCT_MAP[i];
+            label.push(STAT_KR[st] + (isPlus ? "+" : "%"));
+        }
+        const stats = {
+            hp: tabs[0].val[bestB === 0 ? 1 : 0][bestA.mask[0]],
+            atk: tabs[1].val[bestB === 1 ? 1 : 0][bestA.mask[1]],
+            def: tabs[2].val[bestB === 2 ? 1 : 0][bestA.mask[2]]
+        };
+        results.push({
+            ...c, Vval: best, stats,
+            enchant: c.enchantOpt ?? [0, 0, 0],
+            spiritLabel: label.join(" ") + ` 부:${STAT_KR[bestB]}`,
+            spiritKey: `${plus}|${percent}|${STAT_KR[bestB]}`
+        });
+    }
+    return results;
+}
+
 // ===========================
 // 6️⃣ 실행
 // ===========================
@@ -734,38 +845,8 @@ function runCalc(){
         let results = [];
 
         if (spiritOptOn) {
-            // 1단계: 정령 없이 계산 → Top 1000
-            const zeroSpirit = { stats:["체","체","체","체"], types:["%","%","%","%"], bonus:"체" };
-            optionPool.forEach(c => {
-                const r = calcVval(c, zeroSpirit);
-                results.push({...c, ...r});
-            });
-            results.sort((a,b) => b.Vval - a.Vval);
-            const top1000 = results.slice(0, 1000);
-
-            // 2단계: Top 1000에서 최적 정령 탐색
-            results = [];
-            top1000.forEach(c => {
-                let bestVval = 0, bestSpirit = null, bestStats = null;
-                for (let si = 0; si < ALL_SPIRIT_COMBOS.length; si++) {
-                    const sp = ALL_SPIRIT_COMBOS[si];
-                    const r = calcVvalFast(c, sp, sp.bonus);
-                    if (r.Vval > bestVval) {
-                        bestVval = r.Vval;
-                        bestSpirit = sp;
-                        bestStats = r;
-                    }
-                }
-                if (bestSpirit && passMinStat(bestStats, minStats)) {
-                    results.push({
-                        ...c,
-                        Vval: bestVval,
-                        stats: bestStats.stats,
-                        spiritLabel: bestSpirit.label,
-                        spiritKey: `${bestSpirit.plus}|${bestSpirit.percent}|${bestSpirit.bonus}`
-                    });
-                }
-            });
+            // 모든 장비 옵션 × 모든 정령 구성의 정확한 최댓값 (최소 스탯 조건 포함)
+            results = optimizeSpiritExact(optionPool, minStats);
         } else {
             optionPool.forEach((c) => {
                 const r = calcVval(c, spirit);
@@ -791,28 +872,28 @@ function runCalc(){
         const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>HP</th><th>ATK</th><th>DEF</th>`;
 
         function makeRow(b) {
-            const spiritTd = spiritOptOn ? `<td style="font-size:11px;">${b.spiritLabel || "-"}</td>` : "";
-            return `<td>${b.type}</td>
-                <td>${formatBuff(b.buff)}</td>
-                <td>${formatPercent(b.pendantOpt)}</td>
-                <td>${b.gemLevel}</td>
-                <td>${formatGems(b.gems)}</td>
-                <td>${formatPercent(b.accessoryOpt)}</td>
-                <td>${b.enchant.some(v=>v>0) ? formatPercent(b.enchant) : "-"}</td>
+            const spiritTd = spiritOptOn ? `<td class="c-spirit" data-label="정령" style="font-size:11px;">${b.spiritLabel || "-"}</td>` : "";
+            return `<td class="c-type" data-label="타입">${b.type}</td>
+                <td class="c-buff" data-label="버프">${formatBuff(b.buff)}</td>
+                <td class="c-pen" data-label="팬던트">${formatPercent(b.pendantOpt) || "-"}</td>
+                <td class="c-gemlv" data-label="젬Lv">${b.gemLevel}</td>
+                <td class="c-gems" data-label="젬분배">${formatGems(b.gems)}</td>
+                <td class="c-acc" data-label="장신구">${formatPercent(b.accessoryOpt)}</td>
+                <td class="c-ench" data-label="인챈">${b.enchant.some(v=>v>0) ? formatPercent(b.enchant) : "-"}</td>
                 ${spiritTd}
-                <td class="vval">${b.Vval.toLocaleString()}</td>
-                <td class="hp">${b.stats.hp}</td>
-                <td class="atk">${b.stats.atk}</td>
-                <td class="def">${b.stats.def}</td>`;
+                <td class="vval" data-label="비벨">${b.Vval.toLocaleString()}</td>
+                <td class="hp" data-label="HP">${b.stats.hp}</td>
+                <td class="atk" data-label="ATK">${b.stats.atk}</td>
+                <td class="def" data-label="DEF">${b.stats.def}</td>`;
         }
 
         // 표 그리기
         const resultArea = document.querySelector(".result-area");
         resultArea.innerHTML = `
-            <h2>결과 (상위 ${topN.length}개)</h2>
-            <div class="table-wrapper"><table id="resTable"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>
-            <h2 style="margin-top:40px; color:#c0392b;">하위 ${bottomN.length}개</h2>
-            <div class="table-wrapper"><table><thead><tr>${thRow}</tr></thead><tbody id="resBotBody"></tbody></table></div>`;
+            <h2 class="res-h">결과 (상위 ${topN.length}개)</h2>
+            <div class="table-wrapper"><table id="resTable" class="res-table"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>
+            <h2 class="res-h res-h-bottom" style="margin-top:40px; color:#c0392b;">하위 ${bottomN.length}개</h2>
+            <div class="table-wrapper"><table class="res-table res-table-bottom"><thead><tr>${thRow}</tr></thead><tbody id="resBotBody"></tbody></table></div>`;
 
         const resBody = document.getElementById("resBody");
         topN.forEach(b => { const row = document.createElement("tr"); row.innerHTML = makeRow(b); resBody.appendChild(row); });

@@ -2,7 +2,7 @@
  * 새 디자인(v2) 전용 동작. ui-mode.js 가 v2 일 때만 불러옴.
  *  1) 탭 안 페이지(iframe) 높이를 내용에 맞춰 늘려서, 화면 전체가 한 번에 스크롤되게 함
  *     (휴대폰에서 iframe 안쪽만 따로 스크롤되던 문제 해결)
- *  2) 상단바: 휴대폰에서 저장/불러오기/초기화를 ⋯ 메뉴로 접기
+ *  2) (상단바·높이 맞추기·⋯ 메뉴는 index.html 안에 있음 — 이 파일이 늦게 와도 동작하도록)
  *  3) 용/정령 페이지: 속성별 접기/펼치기 + 등록된 용 수 표시
  */
 (function () {
@@ -67,58 +67,6 @@
       // 글꼴이 늦게 적용돼 높이가 바뀌는 경우
       if (document.fonts && document.fonts.ready) document.fonts.ready.then(postHeight);
       setInterval(postHeight, 1500); // 안전장치 (ResizeObserver 미지원 브라우저)
-    });
-  }
-
-  // ---------- 바깥 화면(index.html) ----------
-  if (!embedded && (page === "index.html" || page === "")) {
-    ready(function () {
-      var iframe = document.getElementById("view");
-      var bar = document.querySelector(".tabs");
-      if (!iframe || !bar) return;
-
-      function barH() { return bar.getBoundingClientRect().height; }
-      function resetFrame() {
-        iframe.style.height = Math.max(320, window.innerHeight - barH()) + "px";
-      }
-      resetFrame();
-
-      window.addEventListener("message", function (e) {
-        var d = e.data || {};
-        if (e.source !== iframe.contentWindow) return;
-        if (d.type === "guild-ui-height" && d.h > 0) iframe.style.height = d.h + "px";
-        if (d.type === "guild-ui-scroll") {
-          requestAnimationFrame(function () {
-            var top = iframe.getBoundingClientRect().top + window.scrollY + d.y - barH() - 8;
-            window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-          });
-        }
-      });
-
-      // 탭 바꾸면: 높이 초기화 + 맨 위로 + 선택한 탭이 보이게
-      document.querySelectorAll(".tab").forEach(function (tab) {
-        tab.addEventListener("click", function () {
-          resetFrame();
-          window.scrollTo(0, 0);
-          if (tab.scrollIntoView) tab.scrollIntoView({ block: "nearest", inline: "center" });
-        });
-      });
-
-      // 휴대폰 ⋯ 메뉴
-      var more = document.getElementById("more-btn");
-      if (more) {
-        more.addEventListener("click", function (ev) {
-          ev.stopPropagation();
-          var open = bar.classList.toggle("menu-open");
-          more.setAttribute("aria-expanded", open ? "true" : "false");
-        });
-        document.addEventListener("click", function (ev) {
-          if (!bar.contains(ev.target)) { bar.classList.remove("menu-open"); more.setAttribute("aria-expanded", "false"); }
-        });
-        bar.querySelectorAll(".data-actions button").forEach(function (b) {
-          b.addEventListener("click", function () { bar.classList.remove("menu-open"); });
-        });
-      }
     });
   }
 
