@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<script src="js/ui-mode.js"></script>
 <title>길드전 계산기</title>
 <style>
   body { margin: 0; font-family: sans-serif; }
@@ -71,6 +72,7 @@
   <div class="tab" data-src="pve.html?mode=dealer&v=4">딜러 계산기</div>
   <div class="tab" data-src="pve.html?mode=tank&v=4">탱커 계산기</div>
   <div class="data-actions">
+    <button type="button" id="ui-toggle" class="ui-toggle" title="새 디자인과 이전 디자인을 바꿔서 봅니다"></button>
     <button type="button" id="data-save" title="용/정령, 장신구/팬던트/젬을 파일로 저장">저장하기</button>
     <button type="button" id="data-load" title="저장한 파일에서 용/정령, 장신구/팬던트/젬 불러오기">불러오기</button>
     <button type="button" id="data-reset" class="danger" title="입력한 데이터 전부 지우기">초기화</button>
@@ -78,10 +80,49 @@
   </div>
 </div>
 
+<script>
+  // 새 디자인일 때만: 제목, 가로 스크롤 탭 묶음, ⋯ 메뉴 버튼을 만들고 디자인 버튼을 상단바로 꺼냄
+  if (window.GUILD_UI && window.GUILD_UI.mode === "v2") (function () {
+    const bar = document.querySelector(".tabs");
+    const brand = document.createElement("div");
+    brand.className = "brand"; brand.textContent = "길드전 계산기";
+    const strip = document.createElement("nav");
+    strip.className = "tab-strip"; strip.setAttribute("aria-label", "계산기 메뉴");
+    bar.querySelectorAll(".tab").forEach(t => strip.appendChild(t));
+    const more = document.createElement("button");
+    more.type = "button"; more.id = "more-btn"; more.className = "more-btn";
+    more.setAttribute("aria-label", "저장/불러오기/초기화 메뉴"); more.setAttribute("aria-expanded", "false");
+    more.textContent = "⋯";
+    const toggle = document.getElementById("ui-toggle");
+    bar.prepend(brand, strip, toggle, more);
+  })();
+</script>
 <iframe id="view" src="result.html"></iframe>
 <div id="data-toast"></div>
 
 <script>
+  // 디자인 전후 비교 버튼: 누르면 다른 디자인으로 바꾸고 다시 불러옴 (선택은 기억됨)
+  (function () {
+    const btn = document.getElementById("ui-toggle");
+    const cur = (window.GUILD_UI && window.GUILD_UI.mode) || "v1";
+    btn.textContent = cur === "v2" ? "이전 디자인 보기" : "새 디자인 보기";
+    if (cur !== "v2") {
+      // 이전 디자인: 상단바가 이미 꽉 차 있어서, 화면이 예전 그대로 보이도록 오른쪽 아래에 떠 있는 버튼으로 둠
+      // (휴대폰에선 이전 디자인이 데스크톱 크기로 축소돼 보이므로 버튼을 크게)
+      const big = Math.min(screen.width, screen.height) < 700;
+      document.body.appendChild(btn);
+      btn.style.cssText = "position:fixed; right:" + (big ? 28 : 14) + "px; bottom:" + (big ? 28 : 14) + "px; z-index:20;" +
+        "padding:" + (big ? "22px 34px" : "9px 14px") + "; font-size:" + (big ? 34 : 13) + "px; font-weight:bold;" +
+        "color:#fff; background:#222; border:1px solid #555; border-radius:999px; cursor:pointer; box-shadow:0 3px 12px rgba(0,0,0,.35);";
+    }
+    btn.onclick = () => {
+      if (window.GUILD_UI) window.GUILD_UI.set(cur === "v2" ? "v1" : "v2");
+      else try { localStorage.setItem("ui_design_mode", cur === "v2" ? "v1" : "v2"); } catch (e) {}
+      // 새로고침(reload)은 휴대폰에서 이전 확대 배율이 남으므로, 새 주소로 다시 열어서 배율을 초기화
+      location.replace(location.pathname + "?ui=" + (cur === "v2" ? "v1" : "v2"));
+    };
+  })();
+
   const tabs = document.querySelectorAll(".tab");
   const iframe = document.getElementById("view");
 
