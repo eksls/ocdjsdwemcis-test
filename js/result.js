@@ -577,7 +577,9 @@ document.addEventListener("DOMContentLoaded", function() {
             const BONUS = { "체": "체+40", "공": "공+10", "방": "방+10" };
             const bonus = BONUS[info.bonus] ? `<span class="sub">부가 ${BONUS[info.bonus]}</span>` : "";
             if (!parts.length && !bonus) return "";
-            return `<div class="rc-row"><span class="rc-k">정령</span><span class="rc-v">${parts.join("")}${bonus}</span></div>`;
+            const grade = typeof spiritGrade === "function" ? spiritGrade(info.stats, info.types) : "";
+            const gradeTag = grade ? `<span class="sp-grade">${grade}</span>` : "";
+            return `<div class="rc-row"><span class="rc-k">정령</span><span class="rc-v">${parts.join("")}${bonus}${gradeTag}</span></div>`;
         };
         const gemHtml = (res, key, kr) => {
             const count = res.gems?.[key] || 0;
@@ -708,7 +710,9 @@ document.addEventListener("DOMContentLoaded", function() {
                 const BONUS = { "체": "체+40", "공": "공+10", "방": "방+10" };
                 const bonus = BONUS[info.bonus] ? ` <span style="font-size:11px; color:#95a5a6;">(부가 ${BONUS[info.bonus]})</span>` : "";
                 if (!parts.length && !bonus) return "";
-                return `• <b>정령:</b> ${parts.join(" · ")}${bonus}<br>`;
+                const grade = typeof spiritGrade === "function" ? spiritGrade(info.stats, info.types) : "";
+                const gradeTag = grade ? ` <span style="font-size:11px; color:#fff; background:#5a6378; padding:0 6px; border-radius:4px;">${grade}</span>` : "";
+                return `• <b>정령:</b> ${parts.join(" · ")}${bonus}${gradeTag}<br>`;
             };
 
             // ★ 오류 수정 부분: (res.hp || 0).toLocaleString() 형태로 변경 ★

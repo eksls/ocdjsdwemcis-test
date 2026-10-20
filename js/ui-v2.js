@@ -70,6 +70,25 @@
     });
   }
 
+  // ---------- 모든 페이지: 체/공/방 을 고른 드롭다운에 스탯 색 ----------
+  var STAT_OF = { "체": "hp", "체력": "hp", "HP": "hp", "공": "atk", "공격": "atk", "ATK": "atk", "방": "def", "방어": "def", "DEF": "def" };
+  function paintSelect(sel) {
+    var opt = sel.options && sel.options[sel.selectedIndex];
+    var st = opt ? STAT_OF[(opt.textContent || "").trim()] : null;
+    if (st) sel.setAttribute("data-stat", st); else sel.removeAttribute("data-stat");
+  }
+  function paintAll() { document.querySelectorAll("select").forEach(paintSelect); }
+  afterPageLoad(function () {
+    paintAll();
+    document.addEventListener("change", function (e) { if (e.target && e.target.tagName === "SELECT") paintSelect(e.target); }, true);
+    // 칸 추가 / 불러오기 등으로 새로 생긴 드롭다운도 칠함
+    var pending = false;
+    new MutationObserver(function () {
+      if (pending) return; pending = true;
+      requestAnimationFrame(function () { pending = false; paintAll(); });
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+
   // ---------- 정령 계산기: 결과 30개씩 보여주기, 하위 목록은 눌러서 열기 ----------
   if (page === "spirit-calc.html") {
     ready(function () {
