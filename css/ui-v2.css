@@ -762,14 +762,8 @@ html.ui-v2 .result-area td.hp::before { color: var(--hp); }
 html.ui-v2 .result-area td.atk::before { color: var(--atk); }
 html.ui-v2 .result-area td.def::before { color: var(--def); }
 
-/* 정령 이름 (막플/극막/고점막/단막/유막/올퍼/밸퍼/유유막) */
-html.ui-v2 .sp-grade {
-  display: inline-block; vertical-align: 1px;
-  margin-left: 6px; padding: 0 7px !important;
-  font-size: 11.5px !important; font-weight: 700; line-height: 1.6;
-  color: var(--ink) !important; background: var(--gold) !important;
-  border-radius: 999px !important; white-space: nowrap;
-}
+/* 정령 이름 표시: 색은 js/spirit-grade.js 의 등급색을 그대로 사용, 여기선 여백만 */
+html.ui-v2 .sp-grade { margin-left: 4px; }
 
 /* 움직임 줄이기 설정 존중 */
 @media (prefers-reduced-motion: reduce) {
