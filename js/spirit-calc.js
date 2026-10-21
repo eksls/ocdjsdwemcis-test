@@ -866,8 +866,7 @@ function runCalc(){
 
         let filteredResults = dedupeResults(results, dedupeOptions);
         filteredResults.sort((a,b)=>b.Vval - a.Vval);
-        const topN = filteredResults.slice(0, 200);
-        const bottomN = filteredResults.slice(-50).reverse();
+        const topN = filteredResults.slice(0, 500);
 
         const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>HP</th><th>ATK</th><th>DEF</th>`;
 
@@ -880,12 +879,11 @@ function runCalc(){
         // 정령 이름(막플/극막/…) 작은 표시. 해당 없으면 비움
         const gradeTag = (label) => {
             const g = typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(label) : "";
-            return g ? ` <span class="sp-grade" style="font-size:10px; color:#fff; background:#5a6378; padding:0 5px; border-radius:4px; white-space:nowrap;">${g}</span>` : "";
+            return (g && typeof spiritGradeTag === "function") ? spiritGradeTag(g, { size: 10.5 }) : "";
         };
-        // 정령 고정 모드: 입력한 정령의 이름을 결과 제목 옆에 표시
         const isSpiritOff = document.getElementById("spiritDisabled")?.checked;
         const inputGrade = (!spiritOptOn && !isSpiritOff && typeof spiritGrade === "function") ? spiritGrade(spirit.stats, spirit.types) : "";
-        const inputGradeTag = inputGrade ? ` <span class="sp-grade" style="font-size:12px; color:#fff; background:#5a6378; padding:1px 7px; border-radius:4px; vertical-align:middle;">입력 정령: ${inputGrade}</span>` : "";
+        const inputGradeTag = (inputGrade && typeof spiritGradeTag === "function") ? spiritGradeTag(inputGrade, { size: 12, prefix: "입력 정령: " }) : "";
 
         function makeRow(b) {
             const spiritTd = spiritOptOn ? `<td class="c-spirit" data-label="정령" style="font-size:11px;">${c(b.spiritLabel || "-")}${gradeTag(b.spiritLabel)}</td>` : "";
@@ -907,15 +905,11 @@ function runCalc(){
         const resultArea = document.querySelector(".result-area");
         resultArea.innerHTML = `
             <h2 class="res-h">결과 (상위 ${topN.length}개)${inputGradeTag}</h2>
-            <div class="table-wrapper"><table id="resTable" class="res-table"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>
-            <h2 class="res-h res-h-bottom" style="margin-top:40px; color:#c0392b;">하위 ${bottomN.length}개</h2>
-            <div class="table-wrapper"><table class="res-table res-table-bottom"><thead><tr>${thRow}</tr></thead><tbody id="resBotBody"></tbody></table></div>`;
+            <div class="table-wrapper"><table id="resTable" class="res-table"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>`;
 
         const resBody = document.getElementById("resBody");
         topN.forEach(b => { const row = document.createElement("tr"); row.innerHTML = makeRow(b); resBody.appendChild(row); });
 
-        const resBotBody = document.getElementById("resBotBody");
-        bottomN.forEach(b => { const row = document.createElement("tr"); row.innerHTML = makeRow(b); resBotBody.appendChild(row); });
     } catch(e) {
         alert(e.message);
     }

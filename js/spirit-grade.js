@@ -50,7 +50,34 @@
     return spiritGrade(stats, types);
   }
 
+  // 좋은 순서: 극막 > 고점막 > 막플 > 단막 > 유막 > 밸퍼 > (올퍼) > 유유막
+  // 게임 등급색처럼 좋을수록 진하고 화려하게: 금 → 보라 → 파랑 → 청록 → 회청 → 연회색
+  var GRADE_ORDER = ["극막", "고점막", "막플", "단막", "유막", "밸퍼", "올퍼", "유유막"];
+  var GRADE_COLORS = {
+    "극막":   { bg: "#f5a524", fg: "#3b2500", bd: "#d98a00" },
+    "고점막": { bg: "#7c3aed", fg: "#ffffff", bd: "#6a2bd6" },
+    "막플":   { bg: "#2563eb", fg: "#ffffff", bd: "#1d4fc4" },
+    "단막":   { bg: "#0f8f86", fg: "#ffffff", bd: "#0b7770" },
+    "유막":   { bg: "#64748b", fg: "#ffffff", bd: "#55637a" },
+    "밸퍼":   { bg: "#cfd8e3", fg: "#1e293b", bd: "#b4c0cf" },
+    "올퍼":   { bg: "#e6ebf1", fg: "#475569", bd: "#cdd5df" },
+    "유유막": { bg: "#f4f6f9", fg: "#7a8597", bd: "#dde2ea" }
+  };
+  // 작은 표시(span) HTML. prefix 는 앞에 붙일 글자(예: "입력 정령: ")
+  function spiritGradeTag(grade, opts) {
+    var c = GRADE_COLORS[grade];
+    if (!c) return "";
+    opts = opts || {};
+    var size = opts.size || 11;
+    return ' <span class="sp-grade" data-grade="' + grade + '" data-rank="' + (GRADE_ORDER.indexOf(grade) + 1) + '" style="' +
+      "display:inline-block; font-size:" + size + "px; font-weight:bold; line-height:1.5; padding:0 " + Math.round(size * 0.55) + "px;" +
+      "color:" + c.fg + "; background:" + c.bg + "; border:1px solid " + c.bd + "; border-radius:999px; white-space:nowrap; vertical-align:1px;" +
+      '">' + (opts.prefix || "") + grade + "</span>";
+  }
+
   root.spiritGrade = spiritGrade;
+  root.spiritGradeTag = spiritGradeTag;
+  root.SPIRIT_GRADE_ORDER = GRADE_ORDER;
   root.spiritGradeFromLabel = spiritGradeFromLabel;
-  if (typeof module !== "undefined" && module.exports) module.exports = { spiritGrade: spiritGrade, spiritGradeFromLabel: spiritGradeFromLabel };
+  if (typeof module !== "undefined" && module.exports) module.exports = { spiritGrade: spiritGrade, spiritGradeFromLabel: spiritGradeFromLabel, spiritGradeTag: spiritGradeTag, SPIRIT_GRADE_ORDER: GRADE_ORDER };
 })(typeof window !== "undefined" ? window : globalThis);

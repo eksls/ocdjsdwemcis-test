@@ -578,7 +578,7 @@ document.addEventListener("DOMContentLoaded", function() {
             const bonus = BONUS[info.bonus] ? `<span class="sub">부가 ${BONUS[info.bonus]}</span>` : "";
             if (!parts.length && !bonus) return "";
             const grade = typeof spiritGrade === "function" ? spiritGrade(info.stats, info.types) : "";
-            const gradeTag = grade ? `<span class="sp-grade">${grade}</span>` : "";
+            const gradeTag = (grade && typeof spiritGradeTag === "function") ? spiritGradeTag(grade, { size: 11.5 }) : "";
             return `<div class="rc-row"><span class="rc-k">정령</span><span class="rc-v">${parts.join("")}${bonus}${gradeTag}</span></div>`;
         };
         const gemHtml = (res, key, kr) => {
@@ -711,7 +711,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 const bonus = BONUS[info.bonus] ? ` <span style="font-size:11px; color:#95a5a6;">(부가 ${BONUS[info.bonus]})</span>` : "";
                 if (!parts.length && !bonus) return "";
                 const grade = typeof spiritGrade === "function" ? spiritGrade(info.stats, info.types) : "";
-                const gradeTag = grade ? ` <span style="font-size:11px; color:#fff; background:#5a6378; padding:0 6px; border-radius:4px;">${grade}</span>` : "";
+                const gradeTag = (grade && typeof spiritGradeTag === "function") ? spiritGradeTag(grade, { size: 11 }) : "";
                 return `• <b>정령:</b> ${parts.join(" · ")}${bonus}${gradeTag}<br>`;
             };
 

@@ -94,7 +94,7 @@
     ready(function () {
       var area = document.querySelector(".result-area");
       if (!area) return;
-      var STEP = 30;
+      var STEP = 50;
       function page(tbody, wrapper) {
         var rows = Array.prototype.slice.call(tbody.rows);
         var shown = Math.min(STEP, rows.length);
