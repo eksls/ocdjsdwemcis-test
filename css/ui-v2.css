@@ -700,8 +700,8 @@ html.ui-v2 .result-area tr:hover td { background: var(--sheet-2) !important; }
   }
   html.ui-v2 .result-area td {
     display: block; padding: 0 !important; border: 0 !important; background: none !important;
-    text-align: left; white-space: normal; font-size: 13.5px; font-weight: 600; min-width: 0;
-    overflow-wrap: anywhere;
+    text-align: left; white-space: normal !important; font-size: 13.5px; font-weight: 600; min-width: 0;
+    overflow-wrap: anywhere; overflow: visible;
   }
   html.ui-v2 .result-area td::before {
     content: attr(data-label); display: block;
@@ -713,7 +713,8 @@ html.ui-v2 .result-area tr:hover td { background: var(--sheet-2) !important; }
   html.ui-v2 .result-area td.hp, html.ui-v2 .result-area td.atk, html.ui-v2 .result-area td.def { font-family: var(--num); font-size: 16px; text-align: right; }
   html.ui-v2 .result-area td.hp::before, html.ui-v2 .result-area td.atk::before, html.ui-v2 .result-area td.def::before { font-family: var(--font); }
   html.ui-v2 .result-area td.c-pen, html.ui-v2 .result-area td.c-acc, html.ui-v2 .result-area td.c-gems { grid-column: span 2; }
-  html.ui-v2 .result-area td.c-spirit { grid-column: span 2; font-size: 12.5px !important; }
+  html.ui-v2 .result-area td.c-spirit { grid-column: span 4; font-size: 12.5px !important; }
+  html.ui-v2 .result-area td.c-tar { grid-column: span 2; }
   html.ui-v2 .result-area tr:has(td.c-spirit) td.c-ench { grid-column: span 1; }
 }
 @media (min-width: 980px) {
@@ -764,6 +765,9 @@ html.ui-v2 .result-area td.def::before { color: var(--def); }
 
 /* 정령 이름 표시: 색은 js/spirit-grade.js 의 등급색을 그대로 사용, 여기선 여백만 */
 html.ui-v2 .sp-grade { margin-left: 4px; }
+
+html.ui-v2 .result-area td.c-tar { font-weight: 700; color: var(--ink); }
+html.ui-v2 .result-area td.c-tar .tar-fixed { font-weight: 500; margin-left: 2px; }
 
 /* 움직임 줄이기 설정 존중 */
 @media (prefers-reduced-motion: reduce) {
