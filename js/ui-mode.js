@@ -1,13 +1,11 @@
 /*
- * 디자인 모드 스위치 (모든 페이지 <head> 에서 가장 먼저 불러옴)
- *  - "v2" (새 디자인, 기본값): <html class="ui-v2">, 모바일 viewport, css/ui-v2.css + js/ui-v2.js 로드
- *  - "v1" (이전 디자인): 아무것도 하지 않음 → 예전 화면 그대로
+ * 새 디자인 불러오기 (모든 페이지 <head> 에서 가장 먼저 불러옴)
+ *  - <html class="ui-v2">, 모바일 viewport, css/ui-v2.css + js/ui-v2.js 로드
  * 저장 키는 "guild_" 로 시작하지 않게 해서 [초기화] 버튼에 지워지지 않게 함.
  */
 (function () {
   var KEY = "ui_design_mode";
-  var mode = "v2";
-  try { if (localStorage.getItem(KEY) === "v1") mode = "v1"; } catch (e) {}
+  var mode = "v2"; // 새 디자인 고정 (디자인 전환 버튼은 제거됨. 예전에 이전 디자인을 골랐던 사람도 새 디자인으로 보임)
   window.GUILD_UI = {
     key: KEY,
     mode: mode,
@@ -31,7 +29,7 @@
     '<link rel="preconnect" href="https://fonts.googleapis.com">' +
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">' +
-    '<link rel="stylesheet" href="' + base + 'css/ui-v2.css?v=20261021b">' +
-    '<script src="' + base + 'js/ui-v2.js?v=20261021b"><\/script>'
+    '<link rel="stylesheet" href="' + base + 'css/ui-v2.css?v=20261026b">' +
+    '<script src="' + base + 'js/ui-v2.js?v=20261026b"><\/script>'
   );
 })();

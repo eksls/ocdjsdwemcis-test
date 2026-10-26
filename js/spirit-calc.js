@@ -612,7 +612,8 @@ return {
 // ===========================
 // 5️⃣ 중복 제거
 // ===========================
-function dedupeResults(results, options) {
+function dedupeResults(results, options, scoreFn) {
+    const sc = scoreFn || (r => r.Vval);
     const keys = [];
     if (options.type) keys.push("type");
     if (options.buff) keys.push("buff");
@@ -637,7 +638,8 @@ function dedupeResults(results, options) {
             return item[k];
         }).join("|");
 
-        if (!map.has(key) || item.Vval > map.get(key).Vval) {
+        const prev = map.get(key);
+        if (!prev || sc(item) > sc(prev) || (sc(item) === sc(prev) && item.Vval > prev.Vval)) {
             map.set(key, item);
         }
     });
@@ -827,10 +829,120 @@ function optimizeSpiritExact(optionPool, minStats) {
             ...c, Vval: best, stats,
             enchant: c.enchantOpt ?? [0, 0, 0],
             spiritLabel: label.join(" ") + ` 부:${STAT_KR[bestB]}`,
-            spiritKey: `${plus}|${percent}|${STAT_KR[bestB]}`
+            spiritKey: label.join(" ") + ` 부:${STAT_KR[bestB]}`
         });
     }
     return results;
+}
+
+
+// ===========================
+// 정령별 최고 세팅 (중복 제거: 정령 을 켰을 때)
+// ===========================
+// 정령 배치(슬롯 1~4 의 스탯·종류 + 부가옵) 3,888가지 각각에 대해 가장 좋은 장비 세팅을 찾는다.
+// "옵션마다 가장 좋은 정령 1개"만 남기는 방식과 달리, 단막·유막처럼 1등을 못 하는 정령도 각자의 최고값으로 나온다.
+// 상위 limit 개만 필요하므로, 그 안에 못 드는 장비 옵션(그 옵션의 최고 정령값이 현재 limit 번째보다 낮음)은 건너뛴다 — 결과는 정확.
+const SPIRIT_ARRANGEMENTS = (() => {
+    const out = [];
+    const pow3 = [1, 3, 9, 27];
+    for (let c = 0; c < 6 ** 4; c++) {
+        const st = [], tp = [];
+        let q = c;
+        for (let i = 0; i < 4; i++) { const ch = q % 6; q = Math.floor(q / 6); st.push(ch % 3); tp.push(ch < 3 ? 1 : 2); } // 1 = %, 2 = +
+        for (let bs = 0; bs < 3; bs++) {
+            const idx = [0, 1, 2].map(s => {
+                let sig = 0;
+                for (let i = 0; i < 4; i++) if (st[i] === s) sig += tp[i] * pow3[i];
+                return sig + (bs === s ? 81 : 0);
+            });
+            const label = st.map((x, i) => STAT_KR[x] + (tp[i] === 1 ? "%" : "+")).join(" ") + ` 부:${STAT_KR[bs]}`;
+            out.push({ idx, label });
+        }
+    }
+    return out;
+})();
+
+// scaleFn(rep) : 순위 점수 = 비벨 × scaleFn (기본 1 = 비벨 순). rep.ub 는 그 장비에서 가장 좋은 정령의 비벨
+function optimizeSpiritPerArrangement(optionPool, minStats, otherKeyFn, limit, scaleFn) {
+    const scaleOf = scaleFn || (() => 1);
+    const mins = [minStats.hp || 0, minStats.atk || 0, minStats.def || 0];
+    const BUFF_LIST = {"체체":["체","체"],"공공":["공","공"],"방방":["방","방"],"체공":["체","공"],"체방":["체","방"],"공방":["공","방"],"체":["체"],"공":["공"],"방":["방"],"버프 없음":[]};
+    // 스탯 하나의 값 표: 162칸 = (그 스탯이 받는 슬롯 배치 81가지) × (부가옵 여부 2). 최소 스탯 미달은 -1
+    const tables = new Map();
+    function table(s, x, pen, buffAdd) {
+        const key = s + "|" + x + "|" + pen + "|" + buffAdd;
+        let t = tables.get(key);
+        if (t) return t;
+        const val = new Float64Array(162), best = new Float64Array(32); // best[b*16+mask] = 그 슬롯들로 낼 수 있는 최대
+        best.fill(-1);
+        for (let b = 0; b < 2; b++) for (let sig = 0; sig < 81; sig++) {
+            let q = sig, plus = 0, pct = 0, mask = 0;
+            for (let i = 0; i < 4; i++) {
+                const code = q % 3; q = Math.floor(q / 3);
+                if (code === 1) { pct += SPIRIT_PCT_MAP[i]; mask |= 1 << i; }
+                else if (code === 2) { plus += SPIRIT_PLUS_MAP[i] * (s === 0 ? 4 : 1); mask |= 1 << i; }
+            }
+            let v = pctUp(x + plus, pct);
+            if (b) v += SPIRIT_BONUS_ADD[s];
+            v = pctUp(v, pen) + collection[s] + buffAdd;
+            if (v < mins[s]) v = -1;
+            val[b * 81 + sig] = v;
+            if (v > best[b * 16 + mask]) best[b * 16 + mask] = v;
+        }
+        t = { id: tables.size, val, best };
+        tables.set(key, t);
+        return t;
+    }
+    // 옵션별 표 묶음 + 그 옵션의 최고값(상한)
+    const reps = new Map();
+    for (const c of optionPool) {
+        const base = dragonBaseStats[c.type][c.stat];
+        const gemAdd = [gemStats.체[c.gemLevel] * c.gems.체, gemStats.공[c.gemLevel] * c.gems.공, gemStats.방[c.gemLevel] * c.gems.방];
+        const buffAdd = [0, 0, 0];
+        (BUFF_LIST[c.buff] || []).forEach(b => { const si = STAT_KR.indexOf(b); buffAdd[si] += Math.floor(base[si] * 0.2); });
+        const tabs = [0, 1, 2].map(s => table(s, pctUp(base[s] + gemAdd[s] + potion[s], c.accessoryOpt[s] + c.enchantOpt[s]), c.pendantOpt[s], buffAdd[s]));
+        const other = otherKeyFn(c);
+        const rk = tabs[0].id + "," + tabs[1].id + "," + tabs[2].id + "|" + other;
+        if (reps.has(rk)) continue; // 값이 완전히 같은 옵션은 하나만
+        let ub = -1;
+        for (const a of SLOT_ASSIGNMENTS) for (let bs = 0; bs < 3; bs++) {
+            const h = tabs[0].best[(bs === 0 ? 16 : 0) + a.mask[0]], at = tabs[1].best[(bs === 1 ? 16 : 0) + a.mask[1]], d = tabs[2].best[(bs === 2 ? 16 : 0) + a.mask[2]];
+            if (h < 0 || at < 0 || d < 0) continue;
+            const v = h * at * d; if (v > ub) ub = v;
+        }
+        if (ub > 0) { const rep = { c, tabs, other, ub }; rep.scale = scaleOf(rep); rep.ubS = ub * rep.scale; reps.set(rk, rep); }
+    }
+    const list = [...reps.values()].sort((x, y) => y.ubS - x.ubS);
+    const groups = new Map(); // (다른 중복제거 키 + 정령 배치) → 최고
+    let threshold = -1, sinceRefresh = 0;
+    function refresh() {
+        if (groups.size < limit) { threshold = -1; return; }
+        const vals = []; groups.forEach(g => vals.push(g.s));
+        vals.sort((x, y) => y - x);
+        threshold = vals[limit - 1];
+    }
+    for (const r of list) {
+        if (r.ubS <= threshold) break; // 점수 상한 순으로 정렬돼 있으므로 이후 옵션은 상위 limit 안에 들 수 없음
+        const T0 = r.tabs[0].val, T1 = r.tabs[1].val, T2 = r.tabs[2].val;
+        for (const a of SPIRIT_ARRANGEMENTS) {
+            const h = T0[a.idx[0]], at = T1[a.idx[1]], d = T2[a.idx[2]];
+            if (h < 0 || at < 0 || d < 0) continue;
+            const v = h * at * d, sc = v * r.scale;
+            if (sc <= threshold) continue;
+            const gk = r.other + "|" + a.label;
+            const g = groups.get(gk);
+            if (!g || sc > g.s || (sc === g.s && v > g.v)) groups.set(gk, { v, s: sc, r, a, h, at, d });
+        }
+        if (++sinceRefresh >= 200) { sinceRefresh = 0; refresh(); }
+    }
+    const out = [];
+    groups.forEach(g => out.push({
+        ...g.r.c, Vval: g.v, stats: { hp: g.h, atk: g.at, def: g.d },
+        enchant: g.r.c.enchantOpt ?? [0, 0, 0],
+        spiritLabel: g.a.label, spiritKey: g.a.label,
+        tarSelf: Math.min(100, g.v / g.r.ub * 100)   // 같은 장비의 최선 정령 대비
+    }));
+    return out;
 }
 
 // ===========================
@@ -843,10 +955,41 @@ function runCalc(){
         const optionPool = gatherOptions(document.getElementById("customPendantEnabled").checked);
         const minStats = getMinStats();
         let results = [];
+        // 정렬: vval = 비벨, tarSelf = TAR n% (같은 장비 최선 정령 대비), tarFixed = TAR m% (디비룡 기준)
+        const sortMode = document.getElementById("sortMode")?.value || "vval";
+        const baseOf = (r) => (typeof tarBase === "function" ? tarBase(r.type, r.buff) : null);
+        // n% 계산: 각 줄의 장비에 가장 좋은 정령을 넣었을 때 비벨
+        const fillTarSelf = (rows) => {
+            const todo = rows.filter(r => r.tarSelf == null);
+            if (!todo.length) return;
+            const refPool = todo.map((r, i) => ({
+                __i: i, type: r.type, stat: r.stat, gems: r.gems, gemLevel: r.gemLevel,
+                accessoryLv: r.accessoryLv, accessoryOpt: r.accessoryOpt, enchantOpt: r.enchantOpt ?? r.enchant ?? [0, 0, 0],
+                pendant: r.pendant, pendantOpt: r.pendantOpt, buff: r.buff
+            }));
+            const best = new Array(todo.length).fill(0);
+            optimizeSpiritExact(refPool, minStats).forEach(x => { best[x.__i] = x.Vval; });
+            todo.forEach((r, i) => { r.tarSelf = best[i] > 0 ? Math.min(100, r.Vval / best[i] * 100) : null; });
+        };
 
-        if (spiritOptOn) {
+        if (spiritOptOn && document.getElementById("dedupeSpirit")?.checked) {
+            // 중복 제거: 정령 → 정령 배치마다 최고 세팅 (단막·유막 등도 각자 최고값으로 나옴)
+            const dd = {
+                type: document.getElementById("dedupeType")?.checked,
+                buff: document.getElementById("dedupeBuff")?.checked,
+                pendant: document.getElementById("dedupePendant")?.checked,
+                accessory: document.getElementById("dedupeAccessory")?.checked
+            };
+            // 정령 외 항목은 아래 dedupeResults 가 처리하므로, 여기선 정령별 최고값을 (켠 항목 조합별로) 구함
+            results = optimizeSpiritPerArrangement(optionPool, minStats, (c) => [
+                dd.type ? c.type : "", dd.buff ? c.buff : "", dd.pendant ? c.pendantOpt.join(",") : "", dd.accessory ? c.accessoryOpt.join(",") : ""
+            ].join("|"), 500,
+            sortMode === "tarFixed" ? (rep => { const M = baseOf(rep.c); return M ? 1 / M : 0; })
+            : sortMode === "tarSelf" ? (rep => 1 / rep.ub) : null);
+        } else if (spiritOptOn) {
             // 모든 장비 옵션 × 모든 정령 구성의 정확한 최댓값 (최소 스탯 조건 포함)
             results = optimizeSpiritExact(optionPool, minStats);
+            results.forEach(r => { r.tarSelf = 100; });   // 각 줄이 이미 그 장비의 최선 정령
         } else {
             optionPool.forEach((c) => {
                 const r = calcVval(c, spirit);
@@ -864,11 +1007,22 @@ function runCalc(){
             spirit: document.getElementById("dedupeSpirit")?.checked
         };
 
-        let filteredResults = dedupeResults(results, dedupeOptions);
-        filteredResults.sort((a,b)=>b.Vval - a.Vval);
+        // TAR 순 정렬이면 전체 결과에 점수를 매긴 뒤 상위 500 개를 고름
+        if (sortMode === "tarSelf") fillTarSelf(results);
+        results.forEach(r => { const M = baseOf(r); r.tarRatio = M ? r.Vval / M : 0; });
+        const scoreOf = sortMode === "tarSelf" ? (r => r.tarSelf ?? -1)
+                      : sortMode === "tarFixed" ? (r => r.tarRatio)
+                      : (r => r.Vval);
+        let filteredResults = dedupeResults(results, dedupeOptions, scoreOf);
+        filteredResults.sort((a, b) => scoreOf(b) - scoreOf(a) || b.Vval - a.Vval);
         const topN = filteredResults.slice(0, 500);
 
-        const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>HP</th><th>ATK</th><th>DEF</th>`;
+        // ── TAR n%(m%) ── 표시되는 줄
+        fillTarSelf(topN);
+        topN.forEach(r => { r.tarFixed = typeof tarScore === "function" ? tarScore(r.Vval, r.type, r.buff) : null; });
+        const SORT_NAME = { vval: "", tarSelf: " · TAR n% 순", tarFixed: " · TAR m% 순" };
+
+        const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>TAR</th><th>HP</th><th>ATK</th><th>DEF</th>`;
 
         // 새 디자인: 체/공/방 글자에 스탯 색 (예: "공+공 (40%)", "체1 공0 방4", "체6%+방13%")
         const V2 = document.documentElement.classList.contains("ui-v2");
@@ -885,6 +1039,14 @@ function runCalc(){
         const inputGrade = (!spiritOptOn && !isSpiritOff && typeof spiritGrade === "function") ? spiritGrade(spirit.stats, spirit.types) : "";
         const inputGradeTag = (inputGrade && typeof spiritGradeTag === "function") ? spiritGradeTag(inputGrade, { size: 12, prefix: "입력 정령: " }) : "";
 
+        // 99.96% 가 100.0% 로 보이지 않게 소수 첫째 자리에서 버림
+        const floor1 = (x) => (Math.floor(x * 10 + 1e-9) / 10).toFixed(1);
+        const fmtTar = (b) => {
+            const n = b.tarSelf == null ? "-" : floor1(b.tarSelf) + "%";
+            const m = b.tarFixed == null ? "-" : floor1(b.tarFixed) + "%";
+            return `${n}<span class="tar-fixed" style="font-size:0.85em; color:#7a8297;">(${m})</span>`;
+        };
+
         function makeRow(b) {
             const spiritTd = spiritOptOn ? `<td class="c-spirit" data-label="정령" style="font-size:11px;">${c(b.spiritLabel || "-")}${gradeTag(b.spiritLabel)}</td>` : "";
             return `<td class="c-type" data-label="타입">${c(b.type)}</td>
@@ -896,6 +1058,7 @@ function runCalc(){
                 <td class="c-ench" data-label="인챈">${c(b.enchant.some(v=>v>0) ? formatPercent(b.enchant) : "-")}</td>
                 ${spiritTd}
                 <td class="vval" data-label="비벨">${b.Vval.toLocaleString()}</td>
+                <td class="c-tar" data-label="TAR" title="정령 최적 대비 % (디비룡 TAR)">${fmtTar(b)}</td>
                 <td class="hp" data-label="HP">${b.stats.hp}</td>
                 <td class="atk" data-label="ATK">${b.stats.atk}</td>
                 <td class="def" data-label="DEF">${b.stats.def}</td>`;
@@ -904,7 +1067,7 @@ function runCalc(){
         // 표 그리기
         const resultArea = document.querySelector(".result-area");
         resultArea.innerHTML = `
-            <h2 class="res-h">결과 (상위 ${topN.length}개)${inputGradeTag}</h2>
+            <h2 class="res-h">결과 (상위 ${topN.length}개)${SORT_NAME[sortMode] || ""}${inputGradeTag}</h2>
             <div class="table-wrapper"><table id="resTable" class="res-table"><thead><tr>${thRow}</tr></thead><tbody id="resBody"></tbody></table></div>`;
 
         const resBody = document.getElementById("resBody");
