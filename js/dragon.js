@@ -42,6 +42,53 @@ stat.addEventListener("change", triggerSave);
   return wrap;
 }
 
+// 🔹 칸에 입력된 내용이 있는지 (이름·정령·타입·속성·부가옵 중 하나라도)
+function slotHasContent(slot) {
+  if (slot.querySelector(".dragon-name")?.value.trim()) return true;
+  if ([...slot.querySelectorAll(".spirit-stat, .spirit-type")].some(el => el.value !== "옵")) return true;
+  const t = slot.querySelector(".dragon-type"); if (t && t.value !== "타입") return true;
+  const a = slot.querySelector(".dragon-reserve-attr"); if (a && a.value !== "속성") return true;
+  const b = slot.querySelector(".dragon-bonus"); if (b && b.value !== "부가옵") return true;
+  return !!slot.querySelector('.type-toggles button[data-on="1"]');
+}
+
+// 🔹 예비 정령 이름 칸: 비어 있으면 "예비 정령1", "예비 정령2" ... (계산 결과에 나오는 이름과 같은 번호)
+function renumberReserve() {
+  document.querySelectorAll('.slots[data-key="reserve"] .slot').forEach((slot, i) => {
+    const n = slot.querySelector(".dragon-name");
+    if (n) n.placeholder = "예비 정령" + (i + 1);
+  });
+}
+
+// 🔹 아무 칸이나 지우기 — 내용이 있으면 한 번 더 눌러야 지워짐 (실수 방지)
+function deleteSlot(slot) {
+  const slotsDiv = slot.parentElement;
+  if (!slotsDiv) return;
+  const isReserve = slotsDiv.dataset.key === "reserve";
+  if (slotsDiv.querySelectorAll(".slot").length > 1) slot.remove();
+  else slotsDiv.replaceChild(createSlot(null, isReserve), slot); // 마지막 한 칸은 비우기만 함
+  if (isReserve) renumberReserve();
+  if (typeof slotsDiv._updateToggleText === "function") slotsDiv._updateToggleText();
+  triggerSave();
+}
+function createDeleteButton(slot) {
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "slot-del";
+  del.textContent = "✕";
+  del.title = "이 칸 지우기";
+  del.setAttribute("aria-label", "이 칸 지우기");
+  let timer = null;
+  const disarm = () => { clearTimeout(timer); timer = null; del.classList.remove("is-armed"); del.textContent = "✕"; };
+  del.addEventListener("click", () => {
+    if (!slotHasContent(slot) || del.classList.contains("is-armed")) { disarm(); deleteSlot(slot); return; }
+    del.classList.add("is-armed");
+    del.textContent = "삭제";
+    timer = setTimeout(disarm, 2500);
+  });
+  return del;
+}
+
 // 🔹 슬롯 생성
 function createSlot(data = null, isReserve = false) {
   const slot = document.createElement("div");
@@ -56,7 +103,7 @@ function createSlot(data = null, isReserve = false) {
   
   const name = document.createElement("input");
   name.className = "dragon-name";
-  name.placeholder = isReserve ? "예비 정령" : "용 이름";
+  name.placeholder = isReserve ? "예비 정령" : "용 이름"; // 예비는 renumberReserve() 가 번호를 붙임
   name.addEventListener("input", triggerSave);
   
   // 비활성화 체크박스 (체크하면 모든 계산에서 제외)
@@ -72,6 +119,7 @@ function createSlot(data = null, isReserve = false) {
   row1.append(disableChk, name);
   row1.append(s1.querySelector(".spirit-stat"), s1.querySelector(".spirit-type"),
               s2.querySelector(".spirit-stat"), s2.querySelector(".spirit-type"));
+  row1.append(createDeleteButton(slot));
 
   // --- Row 2: 등급 + 타입 + 부가옵 + 정령 3, 4 ---
   const row2 = document.createElement("div");
@@ -294,11 +342,11 @@ ATTRS.forEach(([key, label]) => {
 
   const addBtn = document.createElement("button");
   addBtn.textContent = "칸 추가";
-  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); triggerSave(); updateToggleText(); } };
+  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); renumberReserve(); triggerSave(); updateToggleText(); } };
 
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "칸 제거";
-  removeBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); triggerSave(); updateToggleText(); } };
+  removeBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length > 1) { slotsDiv.removeChild(slotsDiv.lastElementChild); renumberReserve(); triggerSave(); updateToggleText(); } };
 
   const header = document.createElement("div");
   header.className = "header";
@@ -312,6 +360,7 @@ ATTRS.forEach(([key, label]) => {
   reserveDiv.appendChild(slotsDiv);
   container.appendChild(reserveDiv);
   updateToggleText();
+  renumberReserve();
 })();
 
 // 🔹 저장
@@ -385,6 +434,8 @@ function loadDragonUI(){
     if(reserveItems.length===0){ reserveParent.appendChild(createSlot(null, true)); }
     else{ reserveItems.forEach(item=>reserveParent.appendChild(createSlot(item, true))); }
   }
+
+  renumberReserve();
 
   // 모든 토글 버튼 텍스트 갱신 (로드된 disabled 상태 반영)
   document.querySelectorAll(".slots").forEach(div => {

@@ -243,14 +243,14 @@ run: function() {
         const spiritUnlock = getV("spirit-unlock"); // "off" | "attrFixed" | "typeFixed" | "all"
         // 체크박스(disabled)는 모드와 관계없이 항상 우선 적용 — 체크되어 있으면 무조건 계산 제외
         const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
-        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
-        
-        // 예비 정령 자동 이름 부여
+        // 예비 정령 자동 이름: 용/정령 탭의 칸 순서대로 "예비 정령1, 2, ..." (제외 체크한 칸도 번호는 차지 → 화면 번호와 같음)
         let rIdx = 1;
-        reserveRaw.forEach(d => {
+        allDragonData.forEach(d => {
+            if (d.attrKey !== "reserve") return;
             if (!d.name || d.name.trim() === "") { d.name = `예비 정령${rIdx}`; }
             rIdx++;
         });
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
         const reserveDragons = reserveRaw.filter(d => d.name);
 
         // 예비 정령 속성 = 버프 속성

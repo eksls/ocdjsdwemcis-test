@@ -29,7 +29,7 @@
     '<link rel="preconnect" href="https://fonts.googleapis.com">' +
     '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' +
     '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">' +
-    '<link rel="stylesheet" href="' + base + 'css/ui-v2.css?v=20261026b">' +
-    '<script src="' + base + 'js/ui-v2.js?v=20261026b"><\/script>'
+    '<link rel="stylesheet" href="' + base + 'css/ui-v2.css?v=20261027b">' +
+    '<script src="' + base + 'js/ui-v2.js?v=20261027b"><\/script>'
   );
 })();
