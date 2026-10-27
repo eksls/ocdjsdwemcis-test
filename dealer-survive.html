@@ -26,9 +26,11 @@
   .ds-hide { display: none !important; }
 
   /* 결과 */
-  .ds-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .ds-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .ds-tab .t-rank { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #18213a; border-radius: 999px; padding: 0 6px; margin-right: 4px; vertical-align: 1px; }
+  .ds-tab:first-child .t-rank { background: #b8892a; }
   .ds-tab { text-align: left; padding: 10px 12px !important; min-height: 74px; border-radius: 12px !important; display: flex !important; flex-direction: column; gap: 2px; }
-  .ds-tab .t-name { font-size: 13px; font-weight: 700; color: #4b5468; }
+  .ds-tab .t-name { font-size: 13px; font-weight: 700; color: #4b5468; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ds-tab .t-atk { font-family: var(--num, sans-serif); font-size: 24px; font-weight: 700; color: #c8372f; line-height: 1.1; }
   .ds-tab .t-sub { font-size: 12px; font-weight: 500; color: #7a8297; }
   .ds-tab.is-on { border: 2px solid #18213a !important; }
@@ -136,7 +138,7 @@
 <div id="result"></div>
 
 <script src="js/shared.js"></script>
-<script src="js/dealer-survive-engine.js?v=20261028"></script>
-<script src="js/dealer-survive.js?v=20261028"></script>
+<script src="js/dealer-survive-engine.js?v=20261028b"></script>
+<script src="js/dealer-survive.js?v=20261028b"></script>
 </body>
 </html>
