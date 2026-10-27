@@ -480,7 +480,19 @@ html.ui-v2 #container .slot-grid {
 html.ui-v2 #container .slot-row { display: contents !important; }
 html.ui-v2 #container .slot-row > * { margin: 0 !important; min-width: 0 !important; width: auto !important; flex: none !important; }
 html.ui-v2 #container .row1 > :nth-child(1) { order: 1; grid-column: span 1; }
-html.ui-v2 #container .row1 > :nth-child(2) { order: 2; grid-column: span 7; }
+html.ui-v2 #container .row1 > :nth-child(2) { order: 2; grid-column: span 6; }
+/* 칸 지우기 버튼: 이름 오른쪽 끝 */
+html.ui-v2 #container .row1 > .slot-del { order: 2; grid-column: span 1; }
+html.ui-v2 #container .slot-del {
+  height: 40px !important; min-height: 40px !important; padding: 0 !important;
+  font-size: 15px !important; font-weight: 700 !important; line-height: 1 !important;
+  color: var(--ink-3) !important; background: var(--sheet) !important;
+  border: 1px solid var(--line) !important; border-radius: var(--r-sm) !important; box-shadow: none !important;
+}
+html.ui-v2 #container .slot-del:hover { color: var(--atk) !important; border-color: var(--atk) !important; }
+html.ui-v2 #container .slot-del.is-armed {
+  color: #fff !important; background: var(--atk) !important; border-color: var(--atk) !important; font-size: 12.5px !important;
+}
 html.ui-v2 #container .row2 > :nth-child(1) { order: 3; grid-column: span 2; }
 html.ui-v2 #container .row2 > :nth-child(2) { order: 4; grid-column: span 3; }
 html.ui-v2 #container .row2 > :nth-child(3) { order: 5; grid-column: span 3; }

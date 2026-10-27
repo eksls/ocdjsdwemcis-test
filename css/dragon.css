@@ -209,3 +209,7 @@ input:focus, select:focus {
   font-weight: 800;   /* 아주 굵게 설정 */
   text-shadow: 1px 1px 0px rgba(255,255,255,0.5); /* 밝은색 글자 대비용 */
 }
+/* 칸 지우기 버튼 */
+.slot-del { flex: none; width: 34px; padding: 0; border: 1px solid #ccc; background: #fff; color: #888; border-radius: 4px; cursor: pointer; font-weight: bold; }
+.slot-del:hover { color: #c0392b; border-color: #c0392b; }
+.slot-del.is-armed { width: auto; padding: 0 8px; color: #fff; background: #c0392b; border-color: #c0392b; }
