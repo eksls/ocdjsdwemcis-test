@@ -108,13 +108,16 @@
       enchantValue: 21, hits: num(f.hits, 0), guards: f.hitMode === "guard" ? num(f.guards, 0) : 0,
       bossAtk: num(f.bossAtk, 2750) || 2750, buffs: f.buffs.map(function (b) { return num(b, 0); }), limit: +f.limit || 20
     };
-    lastSolved = { opts: opts, list: E.solve(opts) };
-    // 처음엔 공격력이 가장 높은 용을 펼침
-    if (!activeKey || !lastSolved.list.some(function (x) { return x.dragon.key === activeKey && x.results.length; })) {
-      var best = null;
-      lastSolved.list.forEach(function (x) { if (x.results[0] && (!best || x.results[0].atk > best.results[0].atk)) best = x; });
-      activeKey = (best || lastSolved.list[0]).dragon.key;
-    }
+    // 용 순서: 1등 공격력 높은 순 (같으면 남는 체력 많은 순), 버티지 못하는 용은 맨 뒤
+    var list = E.solve(opts).map(function (x, i) { x._i = i; return x; });
+    list.sort(function (a, b) {
+      var x = a.results[0], y = b.results[0];
+      if (x && y) return y.atk - x.atk || y.left - x.left || a._i - b._i;
+      if (x || y) return x ? -1 : 1;
+      return a._i - b._i;
+    });
+    lastSolved = { opts: opts, list: list };
+    activeKey = list[0].dragon.key;   // 계산하면 1등 용을 펼침
     render();
     if (window.GUILD_UI_V2) window.GUILD_UI_V2.scrollTo($("result"));
   }
@@ -135,10 +138,10 @@
 
   function render() {
     var o = lastSolved.opts;
-    var tabs = lastSolved.list.map(function (x) {
+    var tabs = lastSolved.list.map(function (x, i) {
       var top = x.results[0];
       return '<button type="button" class="ds-tab' + (x.dragon.key === activeKey ? " is-on" : "") + (top ? "" : " is-none") + '" data-key="' + x.dragon.key + '">' +
-        '<span class="t-name">' + esc(x.dragon.name) + '</span>' +
+        '<span class="t-name" title="' + esc(x.dragon.name) + '">' + (top ? '<b class="t-rank">' + (i + 1) + '위</b>' : '') + esc(x.dragon.short) + '</span>' +
         (top ? '<span class="t-atk">' + fmt(top.atk) + '</span><span class="t-sub">남는 체력 ' + fmt(top.left) + '</span>'
              : '<span class="t-atk">생존 불가</span><span class="t-sub">조건을 낮춰 보세요</span>') + '</button>';
     }).join("");
