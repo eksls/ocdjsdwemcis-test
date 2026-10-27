@@ -292,39 +292,45 @@ run: function() {
 
         // 예비/해제 버프 모드별 타입 후보군
         const reserveBuffMode = getV("reserve-buff-mode"); // "2buff"|"1buff"|"both"
-        const STAT_TYPE_MAP = {
-            "체": ["체","체공","체방"],
-            "공": ["공","체공","공방"],
-            "방": ["방","체방","공방"]
-        };
+        // 예비/해제 용이 (attrKr 속성일 때) 받는 버프 개수: 속성버프 + 타입버프
+        const _hasStat = (st) => statIdx[st] !== undefined;
+        function _buffCount(attrKr, t) {
+            return (attrKr && attrKr === config.b1 && _hasStat(config.b2) ? 1 : 0)
+                 + (t === config.b3 && _hasStat(config.b4) ? 1 : 0);
+        }
+        const _debuffed = (t) => t === config.d3 && _hasStat(config.d4);
 
-        function _getTypesToTry() {
+        // 버프 모드별 타입 후보 (속성에 따라 달라짐)
+        //  - 2벞: 속성버프+타입버프 둘 다 받는 타입
+        //  - 1벞: 버프를 딱 1개만 받는 타입 (예: 황혼 방/방 공 → 황혼 용은 방 타입을 빼고 체·공·체공·체방·공방)
+        //         타입 너프에 걸리는 타입은 뺌. 어떤 타입이 가장 센지는 최적화 엔진이 고름
+        //  - 전체: 둘의 합집합
+        function _getTypesToTry(attrKr) {
             const allTypes = ["체","공","방","체공","체방","공방"];
-            // 2벞: 타입버프에 매칭되는 타입만 (없으면 전체)
-            const types2 = (config.b3 && config.b3 !== "선택" && allTypes.includes(config.b3)) ? [config.b3] : allTypes;
-            // 1벞: 속성버프 스탯에 맞는 타입 - 너프 타입 제외
-            let types1 = allTypes;
-            if (config.b2 && STAT_TYPE_MAP[config.b2]) {
-                types1 = STAT_TYPE_MAP[config.b2].filter(t => t !== config.d3);
-                if (types1.length === 0) types1 = STAT_TYPE_MAP[config.b2]; // 전부 너프에 걸리면 그냥 포함
+            const cnt = (t) => _buffCount(attrKr, t);
+            let types2 = allTypes.filter(t => cnt(t) === 2);
+            if (!types2.length) {   // 2벞이 불가능한 속성이면 가장 많이 받는 타입
+                const mx = Math.max(...allTypes.map(cnt));
+                types2 = allTypes.filter(t => cnt(t) === mx);
             }
+            let types1 = allTypes.filter(t => cnt(t) === 1 && !_debuffed(t));
+            if (!types1.length) types1 = allTypes.filter(t => cnt(t) === 1);
+            if (!types1.length) types1 = allTypes.filter(t => !_debuffed(t));
+            if (!types1.length) types1 = allTypes;
 
             if (reserveBuffMode === "2buff") return types2;
             if (reserveBuffMode === "1buff") return types1;
-            // "both": 합집합
-            const set = new Set([...types2, ...types1]);
-            return [...set];
+            return [...new Set([...types2, ...types1])];
         }
 
-        const reserveTypesToTry = _getTypesToTry();
         const reserveTypeMode = getV("reserve-type-mode"); // "asis"|"attrUnified"|"typeUnified"|"allUnified"
         const ALL_TYPES_FULL = ["체","공","방","체공","체방","공방"];
 
         // 예비 정령 모드별 (속성, 타입들) 결정
         // - asis: 용의 선택 속성 + 선택 타입
         // - attrUnified: 버프속성 + 용의 선택 타입
-        // - typeUnified: 용의 선택 속성 + reserveTypesToTry(버프모드 기반)
-        // - allUnified: 버프속성 + reserveTypesToTry
+        // - typeUnified: 용의 선택 속성 + 버프 모드 기준 타입 후보(_getTypesToTry)
+        // - allUnified: 버프속성 + 버프 모드 기준 타입 후보
         function _resolveReserve(dragon) {
             const dragonAttrKr = dragon.reserveAttr && dragon.reserveAttr !== "속성" ? dragon.reserveAttr : null;
             const sel = Array.isArray(dragon.selectedTypes) ? dragon.selectedTypes : [];
@@ -333,7 +339,7 @@ run: function() {
             const unifyType = (reserveTypeMode === "typeUnified" || reserveTypeMode === "allUnified");
 
             const attrKr = unifyAttr ? (config.b1 || dragonAttrKr) : dragonAttrKr;
-            const types = unifyType ? reserveTypesToTry : sel;
+            const types = (unifyType || !sel.length) ? _getTypesToTry(attrKr) : sel;
             return { attrKr, types };
         }
 
@@ -367,11 +373,14 @@ run: function() {
                 const origAttr = dragon._origAttr || attrMap[dragon.attrKey] || dragon.attrKey;
                 const virtualDragon = {
                     reserveAttr: origAttr,
-                    selectedTypes: (dragon.type && dragon.type !== "전체") ? [dragon.type] : reserveTypesToTry
+                    selectedTypes: (dragon.type && dragon.type !== "전체") ? [dragon.type] : []
                 };
                 const { attrKr, types } = _resolveReserve(virtualDragon);
                 const finalAttr = (spiritUnlock === "attrFixed") ? origAttr : (attrKr || origAttr);
-                const finalTypes = (spiritUnlock === "typeFixed") ? [dragon.type] : types;
+                // 속성이 바뀌었으면(속성만 고정) 그 속성 기준으로 버프 개수를 다시 셈
+                const autoTypes = (finalAttr === attrKr) ? types
+                    : ((reserveTypeMode === "typeUnified" || reserveTypeMode === "allUnified" || !virtualDragon.selectedTypes.length) ? _getTypesToTry(finalAttr) : types);
+                const finalTypes = (spiritUnlock === "typeFixed") ? [dragon.type] : autoTypes;
                 _pushDragon(dragon, finalAttr, finalTypes, { isUnlocked: true, isAllType: (finalTypes || []).length > 1 });
             } else {
                 const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
@@ -443,7 +452,8 @@ run: function() {
                 const pen = penG ? penG.pen : null;
 
                 // 미리보기(버프 참고)가 찾을 수 있도록 확정 타입/속성을 반영한 용 객체를 등록
-                const resolvedAttrKey = meta.flags.isReserve ? (krToAttrKey[meta.attrKr] || "reserve") : src.attrKey;
+                const resolvedAttrKey = meta.flags.isReserve ? (krToAttrKey[v.attrKr] || "reserve")
+                    : meta.flags.isUnlocked ? (krToAttrKey[v.attrKr] || src.attrKey) : src.attrKey;
                 const resolved = { ...src, attrKey: resolvedAttrKey, type: v.type };
                 const prevIdx = dragons.findIndex(d => d.name === src.name);
                 if (prevIdx >= 0) dragons[prevIdx] = resolved; else dragons.push(resolved);
