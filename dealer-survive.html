@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="js/ui-mode.js?v=20261028"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정타 딜러 계산기</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; color: #18213a; background: #edf0f5; }
+  .ds-card { background: #fff; border: 1px solid #d6dbe5; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .ds-card > h2 { margin: 0 0 10px; font-size: 16px; }
+  .ds-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .ds-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ds-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .ds-field > span { font-size: 13px; font-weight: 600; color: #7a8297; }
+  .ds-field select, .ds-field input { width: 100%; height: 40px; font-size: 16px; }
+  .ds-note { font-size: 13px; color: #7a8297; margin: 8px 2px 0; line-height: 1.5; }
+  .ds-spirit { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .ds-slot { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .ds-slot > span { font-size: 12px; font-weight: 600; color: #7a8297; text-align: center; }
+  .ds-pair { display: flex; }
+  html .ds-pair select { flex: 1; min-width: 0; text-align: center; text-align-last: center; padding: 0 !important; background-image: none !important; font-weight: 700; }
+  html .ds-pair select:first-child { border-radius: 8px 0 0 8px !important; }
+  html .ds-pair select:last-child { border-radius: 0 8px 8px 0 !important; margin-left: -1px; }
+  html.ui-v2:not(.ui-v2-pve) .ds-pair select { padding: 0 !important; background-image: none !important; }
+  .ds-hide { display: none !important; }
+
+  /* 결과 */
+  .ds-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .ds-tab { text-align: left; padding: 10px 12px !important; min-height: 74px; border-radius: 12px !important; display: flex !important; flex-direction: column; gap: 2px; }
+  .ds-tab .t-name { font-size: 13px; font-weight: 700; color: #4b5468; }
+  .ds-tab .t-atk { font-family: var(--num, sans-serif); font-size: 24px; font-weight: 700; color: #c8372f; line-height: 1.1; }
+  .ds-tab .t-sub { font-size: 12px; font-weight: 500; color: #7a8297; }
+  .ds-tab.is-on { border: 2px solid #18213a !important; }
+  .ds-tab.is-none .t-atk { color: #7a8297; font-size: 16px; }
+  .ds-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 2px 8px; flex-wrap: wrap; }
+  .ds-head h2 { margin: 0; font-size: 17px; }
+  .ds-head small { color: #7a8297; font-size: 13px; }
+  .ds-list { display: grid; gap: 8px; }
+  .ds-row { background: #fff; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 10px; }
+  .ds-rank { grid-row: span 3; font-family: var(--num, sans-serif); font-size: 20px; font-weight: 700; color: #7a8297; text-align: center; padding-top: 2px; }
+  .ds-row:first-child .ds-rank { color: #18213a; }
+  .ds-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .ds-main .atk { font-family: var(--num, sans-serif); font-size: 26px; font-weight: 700; color: #c8372f; line-height: 1.1; }
+  .ds-main .atk small { font-family: var(--font, sans-serif); font-size: 12px; font-weight: 600; margin-right: 3px; }
+  .ds-stats { display: flex; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+  .ds-stats b { font-family: var(--num, sans-serif); font-size: 16px; }
+  .s-hp { color: #2563c9; } .s-atk { color: #c8372f; } .s-def { color: #168259; }
+  .ds-left { font-size: 13px; color: #4b5468; }
+  .ds-left b { font-family: var(--num, sans-serif); font-size: 15px; color: #18213a; }
+  .ds-gear { font-size: 13px; color: #4b5468; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+  .ds-chip { background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .ds-empty { background: #fff; border: 1px dashed #d6dbe5; border-radius: 12px; padding: 18px; color: #4b5468; font-size: 14px; line-height: 1.6; }
+  @media (max-width: 420px) {
+    .ds-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ds-tab .t-atk { font-size: 20px; }
+    .ds-tab { padding: 8px 9px !important; }
+  }
+  html.ui-v2 #calcButton { margin: 4px 0 16px; }
+</style>
+</head>
+<body>
+
+<h1>정타 딜러 계산기</h1>
+
+<div class="ds-card">
+  <h2>버텨야 하는 공격</h2>
+  <div class="ds-grid three">
+    <label class="ds-field"><span>방식</span>
+      <select id="hitMode">
+        <option value="hit">정타 n대</option>
+        <option value="guard">정타 n대 + 방어 m회</option>
+      </select>
+    </label>
+    <label class="ds-field"><span>정타 (대)</span><input type="number" id="hits" min="0" max="99" value="4" inputmode="numeric"></label>
+    <label class="ds-field" id="guardField"><span>방어 (회)</span><input type="number" id="guards" min="0" max="99" value="1" inputmode="numeric"></label>
+    <label class="ds-field"><span>보스 공격력</span><input type="number" id="bossAtk" min="1" value="2750" inputmode="numeric"></label>
+  </div>
+  <p class="ds-note">맞고 나서 체력이 1 이상 남으면 생존입니다. 정타 1대 = 44×보스공격 ÷ (방어+22), 방어 1회 = 44×보스공격 ÷ (방어×3+22) (소수점 버림)</p>
+</div>
+
+<div class="ds-card">
+  <h2>정령</h2>
+  <div class="ds-spirit" id="spiritSlots"></div>
+  <div class="ds-grid" style="margin-top:10px">
+    <label class="ds-field"><span>부가옵</span>
+      <select id="spiritBonus">
+        <option value="없음">없음</option><option value="체">체 +40</option><option value="공">공 +10</option><option value="방">방 +10</option>
+      </select>
+    </label>
+    <label class="ds-field"><span>용/정령 탭에서 불러오기</span>
+      <select id="spiritImport"><option value="">선택</option></select>
+    </label>
+  </div>
+</div>
+
+<div class="ds-card">
+  <h2>장비</h2>
+  <div class="ds-grid three">
+    <label class="ds-field"><span>팬던트</span>
+      <select id="pendantKind"><option value="달">달</option><option value="태양">태양</option></select>
+    </label>
+    <label class="ds-field"><span>젬 수치</span>
+      <select id="gemValue"></select>
+    </label>
+    <label class="ds-field"><span>등급</span>
+      <select id="grade"><option value="9.0">9.0</option><option value="8.0">8.0</option><option value="7.0">7.0</option></select>
+    </label>
+    <label class="ds-field"><span>장신구 레벨</span>
+      <select id="accMode">
+        <option value="20">20</option>
+        <option value="19">19</option>
+        <option value="18">18</option>
+        <option value="17">17</option>
+      </select>
+    </label>
+    <label class="ds-field"><span>표시 개수</span>
+      <select id="limit"><option>10</option><option selected>20</option><option>50</option><option>100</option></select>
+    </label>
+  </div>
+  <p class="ds-note" id="gemNote"></p>
+  <p class="ds-note">장신구 종류(보주·뿔 12종)와 인챈트(+21%), 팬던트 옵션(달 12 또는 6+6, 태양 12+6 또는 6+6+6), 젬 5개 분배는 계산기가 전부 시험해서 고릅니다.</p>
+</div>
+
+<div class="ds-card">
+  <h2>층 버프 (선택)</h2>
+  <div class="ds-grid three">
+    <label class="ds-field"><span class="s-hp">체력 %</span><input type="number" id="buffHp" min="0" value="0" inputmode="numeric"></label>
+    <label class="ds-field"><span class="s-atk">공격 %</span><input type="number" id="buffAtk" min="0" value="0" inputmode="numeric"></label>
+    <label class="ds-field"><span class="s-def">방어 %</span><input type="number" id="buffDef" min="0" value="0" inputmode="numeric"></label>
+  </div>
+</div>
+
+<button type="button" id="calcButton">계산하기</button>
+
+<div id="result"></div>
+
+<script src="js/shared.js"></script>
+<script src="js/dealer-survive-engine.js?v=20261028"></script>
+<script src="js/dealer-survive.js?v=20261028"></script>
+</body>
+</html>
