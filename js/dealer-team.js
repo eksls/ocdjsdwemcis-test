@@ -31,10 +31,11 @@
   function penText(key) { return key === "전체" ? "전체" : key.replace(/(\d+)(?=[체공방])/g, "$1 "); }
 
   // ---------- 상태 ----------
+  function allTypes() { return DS.DRAGONS.map(function (d) { return d.key; }); }
   function defaults() {
     return {
       hitsA: 4, guardsA: 1, hitsB: 3, guardsB: 0, bossAtk: 2750, grade: "9.0",
-      types: DS.DRAGONS.map(function (d) { return d.key; }),
+      slotTypes: { 11: allTypes(), 12: allTypes(), 13: allTypes(), 14: allTypes() },
       spirits: [],
       gems: { 44: [0, 10, 0], 42: [0, 0, 0], 40: [5, 5, 5], 38: [0, 0, 0], 36: [0, 0, 0], 35: [0, 0, 0], 34: [0, 0, 0], 33: [0, 0, 0] },
       accs: [{ level: 19, item: "전체", enchant: "자유", count: 0 }, { level: 20, item: "황보", enchant: "공", count: 1 }],
@@ -45,6 +46,10 @@
   var st;
   try { st = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { st = null; }
   if (!st || !Array.isArray(st.spirits)) st = defaults();
+  if (!st.slotTypes) {   // 예전 저장값(타입 하나의 목록) → 자리마다 같은 목록으로
+    var prev = Array.isArray(st.types) && st.types.length ? st.types : allTypes();
+    st.slotTypes = { 11: prev.slice(), 12: prev.slice(), 13: prev.slice(), 14: prev.slice() };
+  }
   function save() { try { localStorage.setItem(STORE, JSON.stringify(st)); } catch (e) {} }
 
   // ---------- 그리기 ----------
@@ -56,10 +61,20 @@
   }
   function statAttr(v) { return ' data-stat="' + ({ "체": "hp", "공": "atk", "방": "def" }[v] || "") + '"'; }
 
+  // 자리별 타입: 화면 순서 13, 11, 12, 14번 / 칩 순서 어공, 어공방, 어체공, 빛공, 어방
+  var SEATS = [13, 11, 12, 14];
+  var TYPE_ORDER = ["dark-atk", "dark-atkdef", "dark-hpatk", "light-atk", "dark-def"];
+  var TYPE_SHORT = { "dark-atk": "어공", "dark-atkdef": "어공방", "dark-hpatk": "어체공", "light-atk": "빛공", "dark-def": "어방" };
+  var TYPE_NAME = {}; DS.DRAGONS.forEach(function (d) { TYPE_NAME[d.key] = d.name; });
+  function seatGroup(n) { return n <= 12 ? "11·12번 조건" : "13·14번 조건"; }
   function renderTypes() {
-    $("typeChecks").innerHTML = DS.DRAGONS.map(function (d) {
-      var on = st.types.indexOf(d.key) >= 0;
-      return '<label class="dt-check' + (on ? " is-on" : "") + '"><input type="checkbox" data-type="' + d.key + '"' + (on ? " checked" : "") + '><span>' + esc(d.short) + "</span><small>" + esc(d.name) + "</small></label>";
+    $("typeChecks").innerHTML = SEATS.map(function (n) {
+      var on = st.slotTypes[n] || [];
+      return '<div class="dt-seat-row"><div class="dt-seat-no"><b>' + n + '번</b><small>' + seatGroup(n) + "</small></div>" +
+        '<div class="dt-seat-chips">' + TYPE_ORDER.map(function (key) {
+          var c = on.indexOf(key) >= 0;
+          return '<label class="dt-chip' + (c ? " is-on" : "") + '" title="' + esc(TYPE_NAME[key]) + '"><input type="checkbox" data-seat="' + n + '" data-type="' + key + '"' + (c ? " checked" : "") + "><span>" + TYPE_SHORT[key] + "</span></label>";
+        }).join("") + "</div></div>";
     }).join("");
   }
   function renderSpirits() {
@@ -129,10 +144,11 @@
   function num(v, d) { var n = parseInt(v, 10); return isFinite(n) && n >= 0 ? n : d; }
   document.addEventListener("change", function (e) {
     var t = e.target, row = t.closest && t.closest(".dt-row"), i = row ? +row.getAttribute("data-i") : -1;
-    if (t.matches("[data-type]")) {
-      var k = t.getAttribute("data-type");
-      st.types = st.types.filter(function (x) { return x !== k; });
-      if (t.checked) st.types.push(k);
+    if (t.matches("[data-seat]")) {
+      var seat = t.getAttribute("data-seat"), k = t.getAttribute("data-type");
+      var list = (st.slotTypes[seat] || []).filter(function (x) { return x !== k; });
+      if (t.checked) list.push(k);
+      st.slotTypes[seat] = list;
       renderTypes();
     } else if (t.classList.contains("sp-stat")) { st.spirits[i].slots[+t.getAttribute("data-k")].stat = t.value; renderSpirits(); }
     else if (t.classList.contains("sp-mode")) { st.spirits[i].slots[+t.getAttribute("data-k")].mode = t.value; renderSpirits(); }
@@ -216,7 +232,7 @@
     return {
       grade: st.grade, bossAtk: st.bossAtk || 2750, buffs: st.buffs.slice(), enchantValue: 21,
       groups: [{ hits: st.hitsA, guards: st.guardsA }, { hits: st.hitsB, guards: st.guardsB }],
-      types: st.types.slice(), spirits: st.spirits,
+      slotTypes: [11, 12, 13, 14].map(function (n) { return (st.slotTypes[n] || []).slice(); }), spirits: st.spirits,
       gems: st.gems,
       accessories: st.accs.map(function (a) { return { level: +a.level, item: a.item, enchant: a.enchant, count: a.item === "전체" ? 0 : (+a.count || 0) }; }),
       pendants: st.pens.map(function (p) { return { kind: p.kind, opt: p.opt === "전체" ? "전체" : penVec(p.opt), count: p.opt === "전체" ? 0 : (+p.count || 0) }; }),
@@ -244,7 +260,7 @@
     setRunning(true, started);
     var done = function (res) { setRunning(false); render(res, opts); };
     try {
-      worker = new Worker("js/dealer-team-worker.js?v=20261028e");
+      worker = new Worker("js/dealer-team-worker.js?v=20261028f");
       worker.onmessage = function (e) { worker.terminate(); worker = null; if (e.data.ok) done(e.data.res); else { setRunning(false); $("result").innerHTML = '<div class="ds-empty">계산 중 오류: ' + esc(e.data.error) + "</div>"; } };
       worker.onerror = function () { if (worker) worker.terminate(); worker = null; setTimeout(function () { done(DT.solve(opts)); }, 30); };
       worker.postMessage(JSON.parse(JSON.stringify(opts)));

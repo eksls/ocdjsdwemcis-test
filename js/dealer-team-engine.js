@@ -132,7 +132,10 @@
     var t0 = Date.now();
     var A = opts.bossAtk || 2750, buffs = opts.buffs || [0, 0, 0], grade = opts.grade || "9.0";
     var encV = opts.enchantValue == null ? 21 : opts.enchantValue;
-    var dragons = DS.DRAGONS.filter(function (d) { return (opts.types || []).indexOf(d.key) >= 0; });
+    // 자리별로 쓸 수 있는 용 타입 (엔진 자리 순서: 11, 12, 13, 14번). 없으면 opts.types 를 모든 자리에
+    var POS_NAME = ["11번", "12번", "13번", "14번"];
+    var slotTypes = [0, 1, 2, 3].map(function (k) { return ((opts.slotTypes && opts.slotTypes[k]) || opts.types || []).slice().sort(); });
+    var slotDragons = slotTypes.map(function (ts) { return DS.DRAGONS.filter(function (d) { return ts.indexOf(d.key) >= 0; }); });
     var spirits = (opts.spirits || []).map(function (s) { return { sp: s, eff: DS.spiritStats(s) }; });
     var accEntries = opts.accessories || [], penEntries = opts.pendants || [];
     var accRes = accEntries.map(function (e) { return e.item === "전체" ? Infinity : Math.max(0, e.count | 0); });
@@ -147,7 +150,7 @@
     var limitMs = opts.timeLimitMs || 10000;
 
     var problems = [];
-    if (dragons.length === 0) problems.push("용 타입을 하나 이상 체크하세요.");
+    slotDragons.forEach(function (ds, k) { if (!ds.length) problems.push(POS_NAME[k] + " 자리에 용 타입을 하나 이상 고르세요."); });
     // 정령마다 가진 개수 (없으면 1개)
     var spCap = (opts.spirits || []).map(function (s) { return s.count == null ? 1 : Math.max(0, s.count | 0); });
     if (spCap.reduce(function (t, c) { return t + c; }, 0) < 4) problems.push("정령이 4개 이상 필요합니다 (개수 합).");
@@ -180,37 +183,43 @@
     function takenOf(g, def) { var dm = DS.damage(A, def); return dm.hit * groups[g].hits + dm.guard * groups[g].guards; }
 
     // 후보 묶음(정령, 장신구 묶음, 팬던트 묶음)의 "틀" 목록: 타입 × 장신구 × 팬던트, 스탯 계산은 캐시
-    var classes = [];
-    spirits.forEach(function (sp, si) {
-      if (!spCap[si]) return;
-      for (var as = 0; as < accSel.length; as++) {
-        if (!accSel[as].length) continue;
-        for (var ps = 0; ps < penSel.length; ps++) {
-          if (!penSel[ps].length) continue;
-          var frames = [];
-          dragons.forEach(function (d) {
-            var base = DS.BASE_STATS[d.type][grade];
-            accSel[as].forEach(function (ac) {
-              penSel[ps].forEach(function (pn) {
-                var cache = [new Map(), new Map(), new Map()], e = sp.eff;
-                frames.push({ d: d, ac: ac, pn: pn, val: function (s, sum) {
-                  var c = cache[s].get(sum);
-                  if (c === undefined) { c = finalStat(d, s, DS.stat(base[s] + [24, 6, 6][s], sum, ac.pct[s], e.plus[s], e.pct[s], pn.pct[s], [240, 60, 60][s], e.bonus[s])); cache[s].set(sum, c); }
-                  return c;
-                } });
+    // 자리마다 고를 수 있는 타입이 다를 수 있으므로 "타입 묶음"별로 따로 만듦
+    var classesBySet = {}, classCount = 0;
+    function buildClasses(dragons) {
+      var classes = [];
+      spirits.forEach(function (sp, si) {
+        if (!spCap[si]) return;
+        for (var as = 0; as < accSel.length; as++) {
+          if (!accSel[as].length) continue;
+          for (var ps = 0; ps < penSel.length; ps++) {
+            if (!penSel[ps].length) continue;
+            var frames = [];
+            dragons.forEach(function (d) {
+              var base = DS.BASE_STATS[d.type][grade];
+              accSel[as].forEach(function (ac) {
+                penSel[ps].forEach(function (pn) {
+                  var cache = [new Map(), new Map(), new Map()], e = sp.eff;
+                  frames.push({ d: d, ac: ac, pn: pn, val: function (s, sum) {
+                    var c = cache[s].get(sum);
+                    if (c === undefined) { c = finalStat(d, s, DS.stat(base[s] + [24, 6, 6][s], sum, ac.pct[s], e.plus[s], e.pct[s], pn.pct[s], [240, 60, 60][s], e.bonus[s])); cache[s].set(sum, c); }
+                    return c;
+                  } });
+                });
               });
             });
-          });
-          // 공격 젬 1점이 최종 공격력을 최소 얼마나 올리는지 (틀 중 가장 작은 배율)
-          var slope = Infinity;
-          frames.forEach(function (f) {
-            var m = (1 + f.ac.pct[1] / 100) * (1 + sp.eff.pct[1] / 100) * (1 + f.pn.pct[1] / 100) * (f.d.dark ? 1.25 : 1) * (1 + buffs[1] / 100);
-            if (m < slope) slope = m;
-          });
-          classes.push({ si: si, as: as, ps: ps, frames: frames, slope: slope, memo: [new Map(), new Map()] });
+            // 공격 젬 1점이 최종 공격력을 최소 얼마나 올리는지 (틀 중 가장 작은 배율)
+            var slope = Infinity;
+            frames.forEach(function (f) {
+              var m = (1 + f.ac.pct[1] / 100) * (1 + sp.eff.pct[1] / 100) * (1 + f.pn.pct[1] / 100) * (f.d.dark ? 1.25 : 1) * (1 + buffs[1] / 100);
+              if (m < slope) slope = m;
+            });
+            classes.push({ si: si, as: as, ps: ps, frames: frames, slope: slope, memo: [new Map(), new Map()] });
+          }
         }
-      }
-    });
+      });
+      classCount += classes.length;
+      return classes;
+    }
     // 한 마리 값: 묶음 cl, 자리 조건 g, 젬 합 (체, 공, 방) → 버티는 틀 중 최고 공격력과 그 틀
     function classValue(cl, g, sh, sa, sd) {
       var key = (sh * 1024 + sa) * 1024 + sd, m = cl.memo[g], c = m.get(key);
@@ -227,27 +236,34 @@
       return c;
     }
 
-    // ---- 1) 자리 조건별 후보 + 상한 ----
-    var lists = [[], []];
-    classes.forEach(function (cl) {
-      for (var h = 0; h <= 5; h++) for (var a = 0; a <= 5 - h; a++) {
-        var dd = 5 - h - a;
-        if (tops[0][h] < 0 || tops[1][a] < 0 || tops[2][dd] < 0) continue;
-        for (var g = 0; g < 2; g++) {
+    // ---- 1) 자리별 후보 + 상한 (자리 조건과 타입 묶음이 같은 자리는 같은 목록을 씀) ----
+    var slots = [0, 0, 1, 1];                       // 자리 → 조건 묶음 (11·12번 = 0, 13·14번 = 1)
+    var slotKey = [0, 1, 2, 3].map(function (k) { return slots[k] + "|" + slotTypes[k].join(","); });
+    var listByKey = {};
+    var slotList = slotKey.map(function (key, k) {
+      if (listByKey[key]) return listByKey[key];
+      var setKey = slotTypes[k].join(",");
+      var classes = classesBySet[setKey] || (classesBySet[setKey] = buildClasses(slotDragons[k]));
+      var g = slots[k], list = [];
+      classes.forEach(function (cl) {
+        for (var h = 0; h <= 5; h++) for (var a = 0; a <= 5 - h; a++) {
+          var dd = 5 - h - a;
+          if (tops[0][h] < 0 || tops[1][a] < 0 || tops[2][dd] < 0) continue;
           var cv = classValue(cl, g, tops[0][h], tops[1][a], tops[2][dd]);
-          if (cv.v >= 0) lists[g].push({ cl: cl, si: cl.si, as: cl.as, ps: cl.ps, c: [h, a, dd], ub: cv.v });
+          if (cv.v >= 0) list.push({ cl: cl, si: cl.si, as: cl.as, ps: cl.ps, c: [h, a, dd], ub: cv.v });
         }
-      }
+      });
+      list.sort(function (x, y) { return y.ub - x.ub; });
+      return (listByKey[key] = list);
     });
-    lists.forEach(function (l) { l.sort(function (x, y) { return y.ub - x.ub; }); });
-    if (!lists[0].length || !lists[1].length) {
-      return { teams: [], problems: [(!lists[0].length ? "11·12번" : "13·14번") + " 자리 조건을 버틸 수 있는 조합이 없습니다. 정타·방어 횟수를 줄여 보세요."],
-        stats: { candidates: [lists[0].length, lists[1].length], ms: Date.now() - t0 } };
+    var emptyAt = slotList.map(function (l) { return l.length; }).indexOf(0);
+    if (emptyAt >= 0) {
+      return { teams: [], problems: [POS_NAME[emptyAt] + " 자리 조건을 버틸 수 있는 조합이 없습니다. 정타·방어 횟수를 줄이거나 다른 용 타입을 골라 보세요."],
+        stats: { candidates: slotList.map(function (l) { return l.length; }), ms: Date.now() - t0 } };
     }
 
     // ---- 3) 젬 단계 나누기 (4마리 확정 후) ----
     var spKey = spirits.map(function (x) { return x.sp.slots.map(function (q) { return q.stat + q.mode; }).join("") + x.sp.bonus; });
-    var slots = [0, 0, 1, 1];
     function allocate(team, floor) {
       var need = [0, 1, 2].map(function (s) { return team.reduce(function (t, it) { return t + it.c[s]; }, 0); });
       var pools = [0, 1, 2].map(function (s) { return topK(stock[s], need[s]); });
@@ -321,13 +337,13 @@
       usedGem[0] += sgn * it.c[0]; usedGem[1] += sgn * it.c[1]; usedGem[2] += sgn * it.c[2];
     }
     function bestFit(j, from) {
-      var l = lists[slots[j]];
+      var l = slotList[j];
       for (var i = from || 0; i < l.length; i++) if (fits(l[i])) return l[i].ub;
       return -Infinity;
     }
     function insert(team, al) {
       // 자리 묶음별 (정령, 용 타입)이 같으면 같은 팀으로 보고 더 좋은 장비 배분 하나만 남김
-      var sig = team.map(function (it, j) { return slots[j] + "|" + spKey[it.si] + "|" + al.pick[j].f.d.key; }).sort().join("#");
+      var sig = team.map(function (it, j) { return slotKey[j] + "|" + spKey[it.si] + "|" + al.pick[j].f.d.key; }).sort().join("#");
       for (var i = 0; i < best.length; i++) if (best[i].sig === sig) {
         if (al.total <= best[i].total) return;
         best.splice(i, 1); break;
@@ -359,12 +375,12 @@
         return;
       }
       if ((++nodes & 255) === 0 && Date.now() - t0 > limitMs) { timedOut = true; return; }
-      var list = lists[slots[k]];
-      // 같은 자리 묶음의 두 번째 용은 첫 번째 이후 후보만 봄 (같은 후보도 가능: 같은 정령을 2개 이상 가졌을 때)
-      var start = (k === 1 || k === 3) ? chosenIdx[k - 1] : 0;
+      var list = slotList[k];
+      // 조건·타입이 똑같은 짝 자리(11·12 또는 13·14)는 두 번째 용이 첫 번째 이후 후보만 봄 (같은 후보도 가능: 같은 정령을 2개 이상 가졌을 때)
+      var start = ((k === 1 || k === 3) && slotKey[k] === slotKey[k - 1]) ? chosenIdx[k - 1] : 0;
       var rest = 0;
       for (var j = k + 1; j < 4; j++) {
-        var bf = bestFit(j, (j === k + 1 && slots[j] === slots[k]) ? start : 0);
+        var bf = bestFit(j, (j === k + 1 && slotKey[j] === slotKey[k]) ? start : 0);
         if (bf === -Infinity) return;
         rest += bf;
       }
@@ -397,7 +413,7 @@
       return { total: b.total, members: members };
     });
     return { teams: teams, problems: teams.length ? [] : ["조건을 모두 버티는 4마리 조합이 없습니다. 정타·방어 횟수를 줄이거나 젬·장신구·팬던트를 더 넣어 보세요."],
-      exact: !timedOut, stats: { candidates: [lists[0].length, lists[1].length], classes: classes.length, nodes: nodes, leaves: leaves, ms: Date.now() - t0 } };
+      exact: !timedOut, stats: { candidates: slotList.map(function (l) { return l.length; }), classes: classCount, nodes: nodes, leaves: leaves, ms: Date.now() - t0 } };
   }
 
   root.DealerTeam = { solve: solve, accOptions: accOptions, penOptions: penOptions, gemStock: gemStock, GEM_LEVELS: GEM_LEVELS };
