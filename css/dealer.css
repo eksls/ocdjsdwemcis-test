@@ -134,3 +134,7 @@ html.ui-v2 #calcButton { margin: 4px 0 16px; }
   .dt-acc .dt-del { grid-column: 3; grid-row: 1; }
   .dt-acc .acc-item { grid-column: 2; }
 }
+.dt-count { display: inline-flex; align-items: center; gap: 4px; margin: 0; }
+.dt-count input { width: 58px !important; text-align: center; font-weight: 700; }
+.dt-count span { font-size: 13px; color: #4b5468; font-weight: 600; }
+@media (max-width: 420px) { .dt-sp .dt-sp-bonus select { flex: 0 0 104px; } }
