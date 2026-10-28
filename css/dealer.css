@@ -155,3 +155,8 @@ html.ui-v2 #calcButton { margin: 4px 0 16px; }
 .dt-chip.is-on span { background: #18213a; border-color: #18213a; color: #fff; }
 .dt-chip:has(input:focus-visible) span { outline: 2px solid #3b6fe0; outline-offset: 2px; }
 @media (max-width: 380px) { .dt-chip span { font-size: 12.5px; } .dt-seat-row { grid-template-columns: 52px minmax(0, 1fr); } }
+
+/* 정령 최적화 중: 직접 입력 칸 잠금 */
+.ds-manual { position: relative; transition: opacity .15s; }
+.ds-manual.is-locked { opacity: .42; filter: grayscale(1); margin-top: 8px; }
+.ds-manual.is-locked * { pointer-events: none; }
