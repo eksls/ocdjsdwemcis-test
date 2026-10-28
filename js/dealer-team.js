@@ -71,10 +71,11 @@
           return '<div class="ds-pair">' + sel("sp-stat", ["공", "체", "방"], s.stat, ' data-k="' + k + '"' + statAttr(s.stat)) + sel("sp-mode", ["%", "+"], s.mode, ' data-k="' + k + '"') + "</div>";
         }).join("") + "</div>" +
         '<div class="dt-sp-bonus">' + sel("sp-bonus", [["체", "체+40"], ["공", "공+10"], ["방", "방+10"], ["없음", "부옵 없음"]], sp.bonus) +
+        '<label class="dt-count"><input type="number" class="sp-n" min="1" max="99" inputmode="numeric" value="' + (sp.count || 1) + '" aria-label="정령 ' + (i + 1) + ' 개수"><span>개</span></label>' +
         (grade && typeof spiritGradeTag === "function" ? spiritGradeTag(grade, { size: 10.5 }) : "") + "</div>" +
         '<button type="button" class="dt-del" aria-label="정령 ' + (i + 1) + ' 지우기">✕</button></div>';
     }).join("") || '<p class="dt-empty">"용/정령 탭에서 가져오기"를 누르거나 "+ 추가"로 정령을 넣으세요.</p>';
-    $("spiritCount").textContent = st.spirits.length + "개";
+    $("spiritCount").textContent = st.spirits.reduce(function (t, s) { return t + (s.count || 1); }, 0) + "개";
   }
   function renderGems() {
     var tot = [0, 0, 0];
@@ -156,6 +157,9 @@
       var sum = document.querySelector(".dt-gem-sum");
       if (sum) sum.innerHTML = '<span>합</span><span class="s-hp">' + tot[0] + '</span><span class="s-atk">' + tot[1] + '</span><span class="s-def">' + tot[2] + "</span>";
       $("gemCount").textContent = (tot[0] + tot[1] + tot[2]) + "개";
+    } else if (t.classList.contains("sp-n")) {
+      st.spirits[i].count = Math.max(1, num(t.value, 1));
+      $("spiritCount").textContent = st.spirits.reduce(function (q, s) { return q + (s.count || 1); }, 0) + "개";
     } else if (t.classList.contains("acc-n")) st.accs[i].count = num(t.value, 1);
     else if (t.classList.contains("pen-n")) st.pens[i].count = num(t.value, 1);
     else if (t.id === "buffHp") st.buffs[0] = num(t.value, 0);
@@ -175,21 +179,23 @@
     }
   });
   $("spiritAdd").onclick = function () {
-    st.spirits.push({ slots: [0, 1, 2, 3].map(function () { return { stat: "공", mode: "%" }; }), bonus: "공" });
+    st.spirits.push({ slots: [0, 1, 2, 3].map(function () { return { stat: "공", mode: "%" }; }), bonus: "공", count: 1 });
     renderSpirits(); save();
   };
   $("spiritImport").onclick = function () {
     var list = [];
     try { list = (loadData(STORAGE_KEYS.DRAGON) || []); } catch (e) {}
-    var have = {}, added = 0;
-    st.spirits.forEach(function (s) { have[JSON.stringify(s)] = 1; });
+    var keyOf = function (s) { return JSON.stringify({ slots: s.slots, bonus: s.bonus }); };
+    var have = {}, fresh = {}, added = 0;
+    st.spirits.forEach(function (s) { have[keyOf(s)] = 1; });
     list.forEach(function (d) {
       var stats = d.spiritStats || [], types = d.spiritTypes || [];
       if (!stats.every(function (s) { return s === "체" || s === "공" || s === "방"; })) return;   // 4칸이 다 채워진 정령만
       var sp = { slots: stats.slice(0, 4).map(function (s, k) { return { stat: s, mode: types[k] === "+" ? "+" : "%" }; }), bonus: ({ "체": "체", "공": "공", "방": "방" })[d.bonus] || "없음" };
-      var key = JSON.stringify(sp);
-      if (have[key]) return;
-      have[key] = 1; st.spirits.push(sp); added++;
+      var key = keyOf(sp);
+      if (have[key]) return;                        // 이미 목록에 있던 정령은 건드리지 않음
+      if (fresh[key]) { fresh[key].count++; added++; return; }   // 같은 정령이 여러 마리에 있으면 개수로 합침
+      sp.count = 1; fresh[key] = sp; st.spirits.push(sp); added++;
     });
     renderSpirits(); save();
     toast(added ? "정령 " + added + "개를 가져왔습니다." : "새로 가져올 정령이 없습니다 (용/정령 탭에 4칸이 다 채워진 정령만 가져옵니다).");
@@ -238,7 +244,7 @@
     setRunning(true, started);
     var done = function (res) { setRunning(false); render(res, opts); };
     try {
-      worker = new Worker("js/dealer-team-worker.js?v=20261028d");
+      worker = new Worker("js/dealer-team-worker.js?v=20261028e");
       worker.onmessage = function (e) { worker.terminate(); worker = null; if (e.data.ok) done(e.data.res); else { setRunning(false); $("result").innerHTML = '<div class="ds-empty">계산 중 오류: ' + esc(e.data.error) + "</div>"; } };
       worker.onerror = function () { if (worker) worker.terminate(); worker = null; setTimeout(function () { done(DT.solve(opts)); }, 30); };
       worker.postMessage(JSON.parse(JSON.stringify(opts)));

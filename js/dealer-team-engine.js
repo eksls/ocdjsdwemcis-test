@@ -148,7 +148,9 @@
 
     var problems = [];
     if (dragons.length === 0) problems.push("용 타입을 하나 이상 체크하세요.");
-    if (spirits.length < 4) problems.push("정령이 4개 이상 필요합니다.");
+    // 정령마다 가진 개수 (없으면 1개)
+    var spCap = (opts.spirits || []).map(function (s) { return s.count == null ? 1 : Math.max(0, s.count | 0); });
+    if (spCap.reduce(function (t, c) { return t + c; }, 0) < 4) problems.push("정령이 4개 이상 필요합니다 (개수 합).");
     if (gemTotal[0] + gemTotal[1] + gemTotal[2] < 20) problems.push("젬이 20개 이상 필요합니다 (지금 " + (gemTotal[0] + gemTotal[1] + gemTotal[2]) + "개).");
     if (accRes.reduce(function (t, c) { return t + c; }, 0) < 4) problems.push("장신구가 4개 이상 필요합니다.");
     if (penRes.reduce(function (t, c) { return t + c; }, 0) < 4) problems.push("팬던트가 4개 이상 필요합니다.");
@@ -180,6 +182,7 @@
     // 후보 묶음(정령, 장신구 묶음, 팬던트 묶음)의 "틀" 목록: 타입 × 장신구 × 팬던트, 스탯 계산은 캐시
     var classes = [];
     spirits.forEach(function (sp, si) {
+      if (!spCap[si]) return;
       for (var as = 0; as < accSel.length; as++) {
         if (!accSel[as].length) continue;
         for (var ps = 0; ps < penSel.length; ps++) {
@@ -306,7 +309,7 @@
     var usedGem = [0, 0, 0];
     var chosen = [], chosenIdx = [];
     function fits(it) {
-      if (usedSp[it.si]) return false;
+      if (usedSp[it.si] >= spCap[it.si]) return false;
       if (it.as > 0 && usedAcc[it.as - 1] >= accRes[it.as - 1]) return false;
       if (it.ps > 0 && usedPen[it.ps - 1] >= penRes[it.ps - 1]) return false;
       return usedGem[0] + it.c[0] <= gemTotal[0] && usedGem[1] + it.c[1] <= gemTotal[1] && usedGem[2] + it.c[2] <= gemTotal[2];
@@ -357,7 +360,8 @@
       }
       if ((++nodes & 255) === 0 && Date.now() - t0 > limitMs) { timedOut = true; return; }
       var list = lists[slots[k]];
-      var start = (k === 1 || k === 3) ? chosenIdx[k - 1] + 1 : 0;
+      // 같은 자리 묶음의 두 번째 용은 첫 번째 이후 후보만 봄 (같은 후보도 가능: 같은 정령을 2개 이상 가졌을 때)
+      var start = (k === 1 || k === 3) ? chosenIdx[k - 1] : 0;
       var rest = 0;
       for (var j = k + 1; j < 4; j++) {
         var bf = bestFit(j, (j === k + 1 && slots[j] === slots[k]) ? start : 0);
