@@ -1,0 +1,136 @@
+/* 정타 딜러 (1마리 / 4마리) 공통 화면 */
+body { font-family: sans-serif; margin: 16px; color: #18213a; background: #edf0f5; }
+.ds-card { background: #fff; border: 1px solid #e6e9f0; border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+.ds-card > h2 { margin: 0 0 10px; font-size: 16px; }
+.ds-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ds-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ds-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-field > span { font-size: 13px; font-weight: 600; color: #7a8297; }
+.ds-field select, .ds-field input { width: 100%; height: 40px; font-size: 16px; }
+.ds-note { font-size: 13px; color: #7a8297; margin: 8px 2px 0; line-height: 1.5; }
+.ds-spirit { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.ds-slot { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-slot > span { font-size: 12px; font-weight: 600; color: #7a8297; text-align: center; }
+.ds-pair { display: flex; }
+html .ds-pair select { flex: 1; min-width: 0; text-align: center; text-align-last: center; padding: 0 !important; background-image: none !important; font-weight: 700; }
+html .ds-pair select:first-child { border-radius: 8px 0 0 8px !important; }
+html .ds-pair select:last-child { border-radius: 0 8px 8px 0 !important; margin-left: -1px; }
+html.ui-v2:not(.ui-v2-pve) .ds-pair select { padding: 0 !important; background-image: none !important; }
+.ds-hide { display: none !important; }
+
+/* 결과 */
+.ds-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.ds-tab .t-rank { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #18213a; border-radius: 999px; padding: 0 6px; margin-right: 4px; vertical-align: 1px; }
+.ds-tab:first-child .t-rank { background: #b8892a; }
+.ds-tab { text-align: left; padding: 10px 12px !important; min-height: 74px; border-radius: 12px !important; display: flex !important; flex-direction: column; gap: 2px; }
+.ds-tab .t-name { font-size: 13px; font-weight: 700; color: #4b5468; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-tab .t-atk { font-family: var(--num, sans-serif); font-size: 24px; font-weight: 700; color: #c8372f; line-height: 1.1; }
+.ds-tab .t-sub { font-size: 12px; font-weight: 500; color: #7a8297; }
+.ds-tab.is-on { border: 2px solid #18213a !important; }
+.ds-tab.is-none .t-atk { color: #7a8297; font-size: 16px; }
+.ds-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 2px 8px; flex-wrap: wrap; }
+.ds-head h2 { margin: 0; font-size: 17px; }
+.ds-head small { color: #7a8297; font-size: 13px; }
+.ds-list { display: grid; gap: 8px; }
+.ds-row { background: #fff; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 10px; }
+.ds-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ds-rank { font-family: var(--num, sans-serif); font-size: 20px; font-weight: 700; color: #7a8297; text-align: center; padding-top: 2px; }
+.ds-row:first-child .ds-rank { color: #18213a; }
+.ds-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.ds-main .atk { font-family: var(--num, sans-serif); font-size: 26px; font-weight: 700; color: #c8372f; line-height: 1.1; }
+.ds-main .atk small { font-family: var(--font, sans-serif); font-size: 12px; font-weight: 600; margin-right: 3px; }
+.ds-stats { display: flex; gap: 10px; font-size: 14px; flex-wrap: wrap; }
+.ds-stats b { font-family: var(--num, sans-serif); font-size: 16px; }
+.s-hp { color: #2563c9; } .s-atk { color: #c8372f; } .s-def { color: #168259; }
+.ds-left { font-size: 13px; color: #4b5468; }
+.ds-left b { font-family: var(--num, sans-serif); font-size: 15px; color: #18213a; }
+.ds-gear { font-size: 13px; color: #4b5468; display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.ds-spline { font-size: 13px; color: #4b5468; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ds-spline .sp { font-weight: 700; letter-spacing: .02em; }
+.ds-chip { background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.ds-empty { background: #fff; border: 1px dashed #d6dbe5; border-radius: 12px; padding: 18px; color: #4b5468; font-size: 14px; line-height: 1.6; }
+@media (max-width: 420px) {
+  .ds-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ds-tab .t-atk { font-size: 20px; }
+  .ds-tab { padding: 8px 9px !important; }
+}
+html.ui-v2 #calcButton { margin: 4px 0 16px; }
+
+/* ---------- 4마리 ---------- */
+.ds-lead { margin: -4px 2px 14px; color: #4b5468; font-size: 14px; line-height: 1.55; }
+.dt-seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.dt-seat { background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px; }
+.dt-seat-h { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+.dt-seat-h b { font-size: 15px; }
+.dt-seat-h span { font-size: 12px; color: #7a8297; }
+.dt-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.dt-card-h h2 { margin: 0; font-size: 16px; }
+.dt-card-h h2 small { font-size: 12.5px; font-weight: 600; color: #7a8297; margin-left: 4px; }
+.dt-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.dt-actions button { min-height: 34px !important; padding: 0 10px !important; font-size: 13px !important; }
+.dt-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.dt-check { position: relative; display: flex; flex-direction: column; gap: 1px; padding: 9px 10px; border: 1px solid #d6dbe5; border-radius: 10px; background: #fff; cursor: pointer; user-select: none; }
+.dt-check input { position: absolute; opacity: 0; pointer-events: none; }
+.dt-check span { font-weight: 700; font-size: 15px; }
+.dt-check small { font-size: 11.5px; color: #7a8297; }
+.dt-check.is-on { background: #18213a; border-color: #18213a; }
+.dt-check.is-on span { color: #fff; }
+.dt-check.is-on small { color: #b9c0d4; }
+.dt-check:has(input:focus-visible) { outline: 2px solid #3b6fe0; outline-offset: 2px; }
+.dt-list { display: grid; gap: 8px; }
+.dt-row { display: grid; gap: 6px; align-items: center; background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 10px; padding: 8px; }
+.dt-row select, .dt-row input { width: 100%; min-width: 0; }
+.dt-sp { grid-template-columns: 22px minmax(0, 1fr) 40px; }
+.dt-sp .dt-sp-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.dt-sp .dt-sp-bonus { grid-column: 2; display: flex; align-items: center; gap: 8px; }
+.dt-sp .dt-sp-bonus select { width: auto; flex: 0 0 132px; }
+.dt-sp .dt-del { grid-column: 3; grid-row: 1 / span 2; align-self: stretch; }
+.dt-no { font-family: var(--num, sans-serif); font-weight: 700; color: #7a8297; text-align: center; grid-row: 1 / span 2; }
+.dt-acc { grid-template-columns: 64px minmax(0, 1.6fr) minmax(0, 1fr) 54px 40px; }
+.dt-pen { grid-template-columns: 70px minmax(0, 1.6fr) 54px 40px; }
+.dt-inf { text-align: center; font-size: 20px; color: #7a8297; }
+.dt-del { height: 40px !important; min-height: 40px !important; padding: 0 !important; color: #7a8297 !important; font-size: 15px !important; }
+.dt-del:hover { color: #c8372f !important; border-color: #c8372f !important; }
+.dt-empty { margin: 0; color: #7a8297; font-size: 14px; }
+.dt-gems { display: grid; gap: 4px; max-width: 460px; }
+.dt-gem-row { display: grid; grid-template-columns: 52px repeat(3, minmax(0, 1fr)); gap: 6px; align-items: center; }
+.dt-gem-row input { text-align: center; font-weight: 700; }
+.dt-gem-lv { font-family: var(--num, sans-serif); font-size: 18px; font-weight: 700; text-align: center; color: #18213a; }
+.dt-gem-head span, .dt-gem-sum span { text-align: center; font-size: 13px; font-weight: 700; }
+.dt-gem-sum { border-top: 1px solid #e6e9f0; padding-top: 6px; margin-top: 2px; }
+.dt-gem-sum span:first-child { color: #7a8297; }
+.dt-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); background: #18213a; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; opacity: 0; transition: .2s; pointer-events: none; z-index: 50; max-width: calc(100% - 32px); }
+.dt-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.dt-badge { display: inline-block; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 1px 8px; margin-right: 4px; }
+.dt-badge.ok { background: #e5f4ed; color: #168259; }
+.dt-badge.warn { background: #fbf1d9; color: #8a5a00; }
+.dt-warn { margin-top: -4px; margin-bottom: 10px; }
+.dt-team { background: #fff; border: 1px solid #e6e9f0; border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+.dt-team.is-best { border: 2px solid #18213a; }
+.dt-team-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+.dt-team-rank { font-size: 12px; font-weight: 700; color: #fff; background: #18213a; border-radius: 999px; padding: 1px 8px; }
+.dt-team.is-best .dt-team-rank { background: #b8892a; }
+.dt-team-total { font-family: var(--num, sans-serif); font-size: 28px; font-weight: 700; color: #c8372f; line-height: 1; }
+.dt-team-total small { font-family: var(--font, sans-serif); font-size: 12px; color: #4b5468; margin-right: 6px; font-weight: 600; }
+.dt-team-diff { font-size: 12.5px; color: #7a8297; }
+.dt-members { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.dt-m { background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.dt-m-h { display: flex; align-items: baseline; gap: 6px; }
+.dt-m-h b { font-size: 15px; }
+.dt-m-h small { font-size: 11.5px; color: #7a8297; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dt-pos { font-family: var(--num, sans-serif); font-size: 13px; font-weight: 700; color: #fff; background: #4b5468; border-radius: 6px; padding: 0 6px; }
+.dt-m-atk { font-family: var(--num, sans-serif); font-size: 24px; font-weight: 700; color: #c8372f; line-height: 1.1; }
+.dt-m-atk small { font-family: var(--font, sans-serif); font-size: 12px; font-weight: 600; margin-right: 3px; }
+.dt-m-line { font-size: 13px; color: #4b5468; font-weight: 600; }
+.dt-dim { color: #b9c0ce; font-weight: 400; }
+@media (max-width: 900px) { .dt-members { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .dt-members { grid-template-columns: 1fr; }
+  .dt-seats { grid-template-columns: 1fr; }
+  .dt-acc { grid-template-columns: 58px minmax(0, 1fr) 40px; }
+  .dt-acc .acc-item { grid-column: 2 / span 2; }
+  .dt-acc .acc-enc { grid-column: 1 / span 2; }
+  .dt-acc .acc-n, .dt-acc .dt-inf { grid-column: 3; grid-row: 2; }
+  .dt-acc .dt-del { grid-column: 3; grid-row: 1; }
+  .dt-acc .acc-item { grid-column: 2; }
+}
