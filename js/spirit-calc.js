@@ -99,7 +99,7 @@ document.getElementById("customPendantEnabled").addEventListener("change", funct
     
     // 버튼 비활성화 제어
     document.getElementById("btnAddPendant").disabled = !isEnabled;
-    document.getElementById("btnRemovePendant").disabled = !isEnabled;
+    const rm = document.getElementById("btnRemovePendant"); if (rm) rm.disabled = !isEnabled;
     
     // 컨테이너 시각적 비활성화
     const container = document.getElementById("pendantContainer");
@@ -140,13 +140,26 @@ function addPendant() {
                 <input type="number" min="0" max="18" value="0">
             </div>
         `).join('')}
+        <button type="button" class="pendant-del" aria-label="이 팬던트 지우기">✕</button>
     `;
+    // 아무 칸이나 지우기 (마지막 한 칸은 값만 비움)
+    pendantDiv.querySelector(".pendant-del").addEventListener("click", () => {
+        const all = container.querySelectorAll(".custom-pendant");
+        if (all.length > 1) pendantDiv.remove();
+        else pendantDiv.querySelectorAll(".option-group").forEach(g => { g.querySelector("select").selectedIndex = 0; g.querySelector("input").value = 0; });
+        renumberPendants();
+    });
     
     container.appendChild(pendantDiv);
     container.scrollTop = container.scrollHeight; // 추가 시 스크롤 아래로
 }
 
-// 3. 팬던트 제거 함수
+function renumberPendants() {
+    const circles = ["①","②","③","④","⑤","⑥","⑦","⑧","⑨","⑩","⑪","⑫","⑬","⑭","⑮","⑯"];
+    document.querySelectorAll("#pendantContainer .custom-pendant .num").forEach((n, i) => { n.textContent = circles[i] || (i + 1); });
+}
+
+// 3. 팬던트 제거 함수 (맨 뒤 칸)
 function removePendant() {
     const container = document.getElementById("pendantContainer");
     const pendants = container.querySelectorAll(".custom-pendant");
@@ -955,7 +968,7 @@ function runCalc(){
         const optionPool = gatherOptions(document.getElementById("customPendantEnabled").checked);
         const minStats = getMinStats();
         let results = [];
-        // 정렬: vval = 비벨, tarSelf = TAR n% (같은 장비 최선 정령 대비), tarFixed = TAR m% (디비룡 기준)
+        // 정렬: vval = 비벨, tarFixed = TAR (디비룡 기준, 표에서 괄호 안 m%). tarSelf(n%) 는 화면 선택지에서 뺐지만 코드는 남겨 둠
         const sortMode = document.getElementById("sortMode")?.value || "vval";
         const baseOf = (r) => (typeof tarBase === "function" ? tarBase(r.type, r.buff) : null);
         // n% 계산: 각 줄의 장비에 가장 좋은 정령을 넣었을 때 비벨
@@ -1020,7 +1033,7 @@ function runCalc(){
         // ── TAR n%(m%) ── 표시되는 줄
         fillTarSelf(topN);
         topN.forEach(r => { r.tarFixed = typeof tarScore === "function" ? tarScore(r.Vval, r.type, r.buff) : null; });
-        const SORT_NAME = { vval: "", tarSelf: " · TAR n% 순", tarFixed: " · TAR m% 순" };
+        const SORT_NAME = { vval: "", tarSelf: " · TAR n% 순", tarFixed: " · TAR 순" };
 
         const thRow = `<th>타입</th><th>버프</th><th>팬던트</th><th>젬Lv</th><th>젬분배</th><th>장신구</th><th>인챈</th>${spiritOptOn ? "<th>정령</th>" : ""}<th>Vval</th><th>TAR</th><th>HP</th><th>ATK</th><th>DEF</th>`;
 
