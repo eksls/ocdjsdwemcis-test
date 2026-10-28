@@ -32,7 +32,11 @@ html.ui-v2:not(.ui-v2-pve) .ds-pair select { padding: 0 !important; background-i
 .ds-head h2 { margin: 0; font-size: 17px; }
 .ds-head small { color: #7a8297; font-size: 13px; }
 .ds-list { display: grid; gap: 8px; }
-.ds-row { background: #fff; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 10px; }
+.ds-row { background: #fff; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); grid-auto-rows: min-content; gap: 0 10px; align-items: start; }
+/* 순위 숫자는 왼쪽 칸에 고정, 나머지 줄은 모두 오른쪽 칸 (예전 화면 구조여도 깨지지 않게) */
+.ds-row > .ds-rank { grid-column: 1; grid-row: 1 / span 8; }
+.ds-row > :not(.ds-rank) { grid-column: 2; min-width: 0; }
+.ds-row > :not(.ds-rank) + :not(.ds-rank) { margin-top: 3px; }
 .ds-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .ds-rank { font-family: var(--num, sans-serif); font-size: 20px; font-weight: 700; color: #7a8297; text-align: center; padding-top: 2px; }
 .ds-row:first-child .ds-rank { color: #18213a; }
