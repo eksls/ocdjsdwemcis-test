@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="js/ui-mode.js?v=20261028d"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정타 딜러 4마리</title>
+<link rel="stylesheet" href="css/dealer.css?v=20261028d">
+</head>
+<body>
+
+<h1>정타 딜러 4마리</h1>
+<p class="ds-lead">가진 정령·젬·장신구·팬던트를 4마리가 나눠 쓸 때, 자리마다 정해진 공격을 버티면서 <b>공격력 합</b>이 가장 큰 팀을 찾습니다.</p>
+
+<div class="ds-card">
+  <h2>자리별로 버틸 공격</h2>
+  <div class="dt-seats">
+    <div class="dt-seat">
+      <div class="dt-seat-h"><b>11·12번</b><span>앞자리</span></div>
+      <div class="ds-grid">
+        <label class="ds-field"><span>정타 (대)</span><input type="number" id="hitsA" min="0" max="99" value="4" inputmode="numeric"></label>
+        <label class="ds-field"><span>방어 (회)</span><input type="number" id="guardsA" min="0" max="99" value="1" inputmode="numeric"></label>
+      </div>
+    </div>
+    <div class="dt-seat">
+      <div class="dt-seat-h"><b>13·14번</b><span>뒷자리</span></div>
+      <div class="ds-grid">
+        <label class="ds-field"><span>정타 (대)</span><input type="number" id="hitsB" min="0" max="99" value="3" inputmode="numeric"></label>
+        <label class="ds-field"><span>방어 (회)</span><input type="number" id="guardsB" min="0" max="99" value="0" inputmode="numeric"></label>
+      </div>
+    </div>
+  </div>
+  <div class="ds-grid" style="margin-top:10px">
+    <label class="ds-field"><span>보스 공격력</span><input type="number" id="bossAtk" min="1" value="2750" inputmode="numeric"></label>
+    <label class="ds-field"><span>등급</span>
+      <select id="grade"><option value="9.0">9.0</option><option value="8.0">8.0</option><option value="7.0">7.0</option></select>
+    </label>
+  </div>
+  <p class="ds-note">방어를 안 쓰면 0으로 두세요. 맞고 나서 체력이 1 이상 남으면 생존입니다.</p>
+</div>
+
+<div class="ds-card">
+  <h2>쓸 수 있는 용 타입</h2>
+  <div class="dt-checks" id="typeChecks"></div>
+  <p class="ds-note">체크한 타입 중에서 계산기가 4마리를 고릅니다. 같은 타입 여러 마리도 됩니다.</p>
+</div>
+
+<div class="ds-card">
+  <div class="dt-card-h"><h2>보유 정령 <small id="spiritCount"></small></h2>
+    <div class="dt-actions"><button type="button" id="spiritImport">용/정령 탭에서 가져오기</button><button type="button" id="spiritAdd">+ 추가</button></div></div>
+  <div class="dt-list" id="spiritList"></div>
+  <p class="ds-note">4개 이상 필요합니다. 정령 하나는 한 마리만 씁니다.</p>
+</div>
+
+<div class="ds-card">
+  <div class="dt-card-h"><h2>보유 젬 <small id="gemCount"></small></h2>
+    <div class="dt-actions"><button type="button" id="gemClear">모두 0</button></div></div>
+  <div class="dt-gems" id="gemGrid"></div>
+  <p class="ds-note">개수를 넣으세요. 체력 젬은 수치 ×4 (예: 40 → 체력 160)로 계산합니다.</p>
+</div>
+
+<div class="ds-card">
+  <div class="dt-card-h"><h2>보유 장신구 <small id="accCount"></small></h2>
+    <div class="dt-actions"><button type="button" id="accAdd">+ 추가</button></div></div>
+  <div class="dt-list" id="accList"></div>
+  <p class="ds-note">"전체"는 그 레벨의 장신구를 종류별로 다 가지고 있다고 보고 계산합니다(개수 제한 없음). 인챈트 "자유"는 체·공·방 중 계산기가 고릅니다 (+21%).</p>
+</div>
+
+<div class="ds-card">
+  <div class="dt-card-h"><h2>보유 팬던트 <small id="penCount"></small></h2>
+    <div class="dt-actions"><button type="button" id="penAdd">+ 추가</button></div></div>
+  <div class="dt-list" id="penList"></div>
+  <p class="ds-note">달 "전체"는 달 팬던트 옵션(12, 6+6)을 전부 가지고 있다고 보고 계산합니다(개수 제한 없음).</p>
+</div>
+
+<div class="ds-card">
+  <h2>그 밖에</h2>
+  <div class="ds-grid three">
+    <label class="ds-field"><span class="s-hp">층 버프 체력 %</span><input type="number" id="buffHp" min="0" value="0" inputmode="numeric"></label>
+    <label class="ds-field"><span class="s-atk">층 버프 공격 %</span><input type="number" id="buffAtk" min="0" value="0" inputmode="numeric"></label>
+    <label class="ds-field"><span class="s-def">층 버프 방어 %</span><input type="number" id="buffDef" min="0" value="0" inputmode="numeric"></label>
+    <label class="ds-field"><span>보여줄 팀 수</span>
+      <select id="topK"><option value="1">1팀</option><option value="3" selected>3팀</option><option value="5">5팀</option></select>
+    </label>
+    <label class="ds-field"><span>찾는 시간 (최대)</span>
+      <select id="timeLimit"><option value="6000">6초</option><option value="15000" selected>15초</option><option value="40000">40초</option></select>
+    </label>
+  </div>
+</div>
+
+<button type="button" id="calcButton">4마리 계산하기</button>
+<div id="result"></div>
+
+<script src="js/shared.js"></script>
+<script src="js/spirit-grade.js?v=20261026"></script>
+<script src="js/dealer-survive-engine.js?v=20261028c"></script>
+<script src="js/dealer-team-engine.js?v=20261028d"></script>
+<script src="js/dealer-team.js?v=20261028d"></script>
+</body>
+</html>

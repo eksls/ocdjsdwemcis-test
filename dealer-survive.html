@@ -2,64 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="js/ui-mode.js?v=20261028"></script>
+<script src="js/ui-mode.js?v=20261028d"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>정타 딜러 계산기</title>
-<style>
-  body { font-family: sans-serif; margin: 16px; color: #18213a; background: #edf0f5; }
-  .ds-card { background: #fff; border: 1px solid #d6dbe5; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-  .ds-card > h2 { margin: 0 0 10px; font-size: 16px; }
-  .ds-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .ds-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .ds-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .ds-field > span { font-size: 13px; font-weight: 600; color: #7a8297; }
-  .ds-field select, .ds-field input { width: 100%; height: 40px; font-size: 16px; }
-  .ds-note { font-size: 13px; color: #7a8297; margin: 8px 2px 0; line-height: 1.5; }
-  .ds-spirit { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-  .ds-slot { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  .ds-slot > span { font-size: 12px; font-weight: 600; color: #7a8297; text-align: center; }
-  .ds-pair { display: flex; }
-  html .ds-pair select { flex: 1; min-width: 0; text-align: center; text-align-last: center; padding: 0 !important; background-image: none !important; font-weight: 700; }
-  html .ds-pair select:first-child { border-radius: 8px 0 0 8px !important; }
-  html .ds-pair select:last-child { border-radius: 0 8px 8px 0 !important; margin-left: -1px; }
-  html.ui-v2:not(.ui-v2-pve) .ds-pair select { padding: 0 !important; background-image: none !important; }
-  .ds-hide { display: none !important; }
-
-  /* 결과 */
-  .ds-tabs { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 8px; margin-bottom: 12px; }
-  .ds-tab .t-rank { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; background: #18213a; border-radius: 999px; padding: 0 6px; margin-right: 4px; vertical-align: 1px; }
-  .ds-tab:first-child .t-rank { background: #b8892a; }
-  .ds-tab { text-align: left; padding: 10px 12px !important; min-height: 74px; border-radius: 12px !important; display: flex !important; flex-direction: column; gap: 2px; }
-  .ds-tab .t-name { font-size: 13px; font-weight: 700; color: #4b5468; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ds-tab .t-atk { font-family: var(--num, sans-serif); font-size: 24px; font-weight: 700; color: #c8372f; line-height: 1.1; }
-  .ds-tab .t-sub { font-size: 12px; font-weight: 500; color: #7a8297; }
-  .ds-tab.is-on { border: 2px solid #18213a !important; }
-  .ds-tab.is-none .t-atk { color: #7a8297; font-size: 16px; }
-  .ds-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0 2px 8px; flex-wrap: wrap; }
-  .ds-head h2 { margin: 0; font-size: 17px; }
-  .ds-head small { color: #7a8297; font-size: 13px; }
-  .ds-list { display: grid; gap: 8px; }
-  .ds-row { background: #fff; border: 1px solid #e6e9f0; border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 2px 10px; }
-  .ds-rank { grid-row: span 3; font-family: var(--num, sans-serif); font-size: 20px; font-weight: 700; color: #7a8297; text-align: center; padding-top: 2px; }
-  .ds-row:first-child .ds-rank { color: #18213a; }
-  .ds-main { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  .ds-main .atk { font-family: var(--num, sans-serif); font-size: 26px; font-weight: 700; color: #c8372f; line-height: 1.1; }
-  .ds-main .atk small { font-family: var(--font, sans-serif); font-size: 12px; font-weight: 600; margin-right: 3px; }
-  .ds-stats { display: flex; gap: 10px; font-size: 14px; flex-wrap: wrap; }
-  .ds-stats b { font-family: var(--num, sans-serif); font-size: 16px; }
-  .s-hp { color: #2563c9; } .s-atk { color: #c8372f; } .s-def { color: #168259; }
-  .ds-left { font-size: 13px; color: #4b5468; }
-  .ds-left b { font-family: var(--num, sans-serif); font-size: 15px; color: #18213a; }
-  .ds-gear { font-size: 13px; color: #4b5468; display: flex; flex-wrap: wrap; gap: 4px 6px; }
-  .ds-chip { background: #f6f8fb; border: 1px solid #e6e9f0; border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
-  .ds-empty { background: #fff; border: 1px dashed #d6dbe5; border-radius: 12px; padding: 18px; color: #4b5468; font-size: 14px; line-height: 1.6; }
-  @media (max-width: 420px) {
-    .ds-grid.three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .ds-tab .t-atk { font-size: 20px; }
-    .ds-tab { padding: 8px 9px !important; }
-  }
-  html.ui-v2 #calcButton { margin: 4px 0 16px; }
-</style>
+<link rel="stylesheet" href="css/dealer.css?v=20261028d">
 </head>
 <body>
 
@@ -83,6 +29,16 @@
 
 <div class="ds-card">
   <h2>정령</h2>
+  <label class="ds-field" style="margin-bottom:10px"><span>정령 정하기</span>
+    <select id="spiritMode">
+      <option value="manual">직접 입력</option>
+      <option value="allAtk">최적화 · 올공퍼 (공% 4개, 부가옵만 고름)</option>
+      <option value="allPct">최적화 · 올퍼 (%%%% 형태 전부)</option>
+      <option value="noMakple">최적화 · 막플 제외 (%%%+ 빼고 전부)</option>
+    </select>
+  </label>
+  <p class="ds-note ds-hide" id="spiritModeNote" style="margin:0"></p>
+  <div id="spiritManual">
   <div class="ds-spirit" id="spiritSlots"></div>
   <div class="ds-grid" style="margin-top:10px">
     <label class="ds-field"><span>부가옵</span>
@@ -93,6 +49,7 @@
     <label class="ds-field"><span>용/정령 탭에서 불러오기</span>
       <select id="spiritImport"><option value="">선택</option></select>
     </label>
+  </div>
   </div>
 </div>
 
@@ -138,7 +95,8 @@
 <div id="result"></div>
 
 <script src="js/shared.js"></script>
-<script src="js/dealer-survive-engine.js?v=20261028b"></script>
-<script src="js/dealer-survive.js?v=20261028b"></script>
+<script src="js/spirit-grade.js?v=20261026"></script>
+<script src="js/dealer-survive-engine.js?v=20261028c"></script>
+<script src="js/dealer-survive.js?v=20261028c"></script>
 </body>
 </html>
