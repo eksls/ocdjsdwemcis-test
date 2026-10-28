@@ -128,16 +128,50 @@
     return list;
   }
 
+  // ---------- 정령 후보 ----------
+  //  manual: 입력한 정령 1개 / allAtk: 올공퍼 (공% ×4, 부가옵만 체·공·방)
+  //  allPct: 올퍼 (%%%% 형태 전부) / noMakple: 막플(%%%+) 형태만 빼고 전부
+  var MODE_PATTERNS = (function () {
+    var out = [];
+    for (var m = 0; m < 16; m++) out.push([0, 1, 2, 3].map(function (i) { return (m >> (3 - i)) & 1 ? "+" : "%"; }));
+    return out;   // 0번 = %%%%, 1번 = %%%+
+  })();
+  function spiritCandidates(mode, manual) {
+    if (mode !== "allAtk" && mode !== "allPct" && mode !== "noMakple") return [manual || { slots: [], bonus: "없음" }];
+    var list = [], seen = {};
+    var bonuses = ["체", "공", "방"];
+    function add(stats, modes, bonus) {
+      var sp = { slots: stats.map(function (st, i) { return { stat: st, mode: modes[i] }; }), bonus: bonus };
+      var e = spiritStats(sp);
+      var key = e.plus.join(",") + "|" + e.pct.join(",") + "|" + e.bonus.join(",");
+      if (seen[key]) return; seen[key] = 1;   // 효과가 완전히 같은 정령은 하나만
+      list.push(sp);
+    }
+    if (mode === "allAtk") { bonuses.forEach(function (b) { add(["공", "공", "공", "공"], ["%", "%", "%", "%"], b); }); return list; }
+    var patterns = mode === "allPct" ? [MODE_PATTERNS[0]]
+      : MODE_PATTERNS.filter(function (p) { return p.join("") !== "%%%+"; });
+    patterns.forEach(function (modes) {
+      for (var c = 0; c < 81; c++) {
+        var stats = [Math.floor(c / 27) % 3, Math.floor(c / 9) % 3, Math.floor(c / 3) % 3, c % 3].map(function (x) { return STAT_KR[x]; });
+        bonuses.forEach(function (b) { add(stats, modes, b); });
+      }
+    });
+    return list;
+  }
+
   /*
    * opts = {
-   *   grade: "9.0", spirit: {slots:[{stat,mode}]×4, bonus}, gemValue: 40,
-   *   pendantKind: "달"|"태양", accMode, accLevel, owned, enchantValue,
+   *   grade: "9.0", spirit: {slots:[{stat,mode}]×4, bonus}, spiritMode: "manual"|"allAtk"|"allPct"|"noMakple",
+   *   gemValue: 40, pendantKind: "달"|"태양", accLevel, enchantValue,
    *   hits: n, guards: m, bossAtk: 2750, buffs: [체%,공%,방%], limit: 20
    * }
-   * return [{ dragon, results:[...상위 limit], survivable: 개수, total: 확인한 조합 수, bestUnsafe: 가장 많이 버틴 실패 조합 }]
+   * return [{ dragon, results:[...상위 limit], survivable, total, spirits, bestUnsafe }]
+   *
+   * 빠르게 하는 방법 (결과는 전부 확인한 것과 같음)
+   *  - 스탯마다 (젬 개수 × 장신구% × 팬던트%) 표를 정령마다 한 번만 만들어 조합은 표에서 꺼내 씀
+   *  - 정령을 "낼 수 있는 최대 공격력" 높은 순으로 보다가, 그 최대치가 이미 찾은 상위 n번째보다 낮으면 멈춤
    */
   function solve(opts) {
-    var sp = spiritStats(opts.spirit || {});
     var gv = opts.gemValue || 40;
     var gemPer = [gv * 4, gv, gv];
     var pens = pendantOptions(opts.pendantKind);
@@ -146,49 +180,97 @@
     var A = opts.bossAtk || 2750;
     var buffs = opts.buffs || [0, 0, 0];
     var limit = opts.limit || 20;
+    var spirits = spiritCandidates(opts.spiritMode, opts.spirit);
+    var effs = spirits.map(spiritStats);
+    var many = spirits.length > 1;
+
+    // 스탯별로 서로 다른 장신구%, 팬던트% 값과 그 번호
+    var accVals = [[], [], []], penVals = [[], [], []];
+    var accIx = accs.map(function (a) { return [0, 1, 2].map(function (s) { var k = accVals[s].indexOf(a.pct[s]); if (k < 0) { k = accVals[s].length; accVals[s].push(a.pct[s]); } return k; }); });
+    var penIx = pens.map(function (p) { return [0, 1, 2].map(function (s) { var k = penVals[s].indexOf(p[s]); if (k < 0) { k = penVals[s].length; penVals[s].push(p[s]); } return k; }); });
+    var NA = accVals.map(function (v) { return v.length; }), NP = penVals.map(function (v) { return v.length; });
+    var gearCount = 21 * accs.length * pens.length;
 
     return DRAGONS.map(function (d) {
       var base = BASE_STATS[d.type][opts.grade || "9.0"];
-      var all = [], total = 0, bestUnsafe = null;
-      for (var h = 0; h <= 5; h++) for (var a = 0; a <= 5 - h; a++) {
-        var g = [h, a, 5 - h - a];
-        for (var ai = 0; ai < accs.length; ai++) {
-          var acc = accs[ai];
-          for (var pi = 0; pi < pens.length; pi++) {
-            var pen = pens[pi];
-            total++;
-            var raw = [0, 1, 2].map(function (s) {
-              return stat(base[s] + POTION[s], gemPer[s] * g[s], acc.pct[s], sp.plus[s], sp.pct[s], pen[s], COLLECTION[s], sp.bonus[s]);
-            });
-            var hp = mulFloor(raw[0], buffs[0]);
-            var atk = mulFloor(Math.floor(raw[1] * (d.dark ? 125 : 100) / 100), buffs[1]);
-            var def = mulFloor(Math.floor(raw[2] * (d.light ? 125 : 100) / 100), buffs[2]);
-            var dm = damage(A, def);
-            var taken = dm.hit * hits + dm.guard * guards;
-            var left = hp - taken;
-            var row = { gems: g, acc: acc, pen: pen, penLabel: pendantLabel(opts.pendantKind, pen),
-              raw: raw, hp: hp, atk: atk, def: def, hit: dm.hit, guard: dm.guard, taken: taken, left: left };
-            if (left >= 1) all.push(row);
-            else if (!bestUnsafe || left > bestUnsafe.left) bestUnsafe = row;   // 못 버티는 조합 중 가장 단단한 것 (안내용)
+      var finalOf = [
+        function (x) { return mulFloor(x, buffs[0]); },
+        function (x) { return mulFloor(Math.floor(x * (d.dark ? 125 : 100) / 100), buffs[1]); },
+        function (x) { return mulFloor(Math.floor(x * (d.light ? 125 : 100) / 100), buffs[2]); }
+      ];
+      // 정령 e 의 스탯 s 표: [젬 개수][장신구 번호][팬던트 번호] → 최종 수치
+      function table(e, s) {
+        var t = new Int32Array(6 * NA[s] * NP[s]);
+        for (var g = 0; g <= 5; g++) for (var ia = 0; ia < NA[s]; ia++) for (var ip = 0; ip < NP[s]; ip++) {
+          t[(g * NA[s] + ia) * NP[s] + ip] = finalOf[s](stat(base[s] + POTION[s], gemPer[s] * g, accVals[s][ia], e.plus[s], e.pct[s], penVals[s][ip], COLLECTION[s], e.bonus[s]));
+        }
+        return t;
+      }
+      // 정령마다 낼 수 있는 최대 공격력 (공격 젬 5개 + 가장 좋은 장신구·팬던트)
+      var order = effs.map(function (e, i) {
+        var t = table(e, 1), mx = 0;
+        for (var k = 0; k < t.length; k++) if (t[k] > mx) mx = t[k];
+        return { i: i, ub: mx, ta: t };
+      });
+      if (many) order.sort(function (x, y) { return y.ub - x.ub || x.i - y.i; });
+
+      var cand = [], full = false, threshold = -1, survivable = 0, checked = 0, bestUnsafe = null;
+      function compact() {
+        cand.sort(function (x, y) { return y.atk - x.atk || y.left - x.left || y.def - x.def || x.seq - y.seq; });
+        var out = [], seenStat = {};
+        for (var i = 0; i < cand.length && out.length < limit; i++) {
+          var k = cand[i].hp + "|" + cand[i].atk + "|" + cand[i].def;
+          if (seenStat[k]) continue; seenStat[k] = 1;   // 같은 스탯이 나오는 조합은 하나만 (먼저 나온 것)
+          out.push(cand[i]);
+        }
+        cand = out;
+        if (cand.length >= limit) { full = true; threshold = cand[cand.length - 1].atk; }
+      }
+      var seq = 0;
+      for (var oi = 0; oi < order.length; oi++) {
+        var o = order[oi];
+        if (many && full && o.ub < threshold) break;   // 이 뒤 정령은 상위 n 개에 들 수 없음
+        checked++;
+        var e = effs[o.i], TA = o.ta, TH = table(e, 0), TD = table(e, 2);
+        var TK = new Int32Array(TD.length);
+        for (var k2 = 0; k2 < TD.length; k2++) { var dm = damage(A, TD[k2]); TK[k2] = dm.hit * hits + dm.guard * guards; }
+        for (var h = 0; h <= 5; h++) for (var a = 0; a <= 5 - h; a++) {
+          var dd = 5 - h - a;
+          for (var ai = 0; ai < accs.length; ai++) {
+            var ax = accIx[ai];
+            var bH = (h * NA[0] + ax[0]) * NP[0], bA = (a * NA[1] + ax[1]) * NP[1], bD = (dd * NA[2] + ax[2]) * NP[2];
+            for (var pi = 0; pi < pens.length; pi++) {
+              var px = penIx[pi];
+              var atk = TA[bA + px[1]];
+              if (many && full && atk < threshold) continue;
+              var hp = TH[bH + px[0]], kd = bD + px[2], left = hp - TK[kd];
+              if (left < 1) {
+                if (!survivable && (!bestUnsafe || left > bestUnsafe.left)) bestUnsafe = { gems: [h, a, dd], acc: accs[ai], pen: pens[pi], spirit: spirits[o.i], hp: hp, atk: atk, def: TD[kd], taken: TK[kd], left: left };
+                continue;
+              }
+              survivable++;
+              if (full && atk < threshold) continue;
+              cand.push({ seq: seq++, gems: [h, a, dd], acc: accs[ai], pen: pens[pi], spirit: spirits[o.i], hp: hp, atk: atk, def: TD[kd], taken: TK[kd], left: left });
+              if (cand.length >= limit * 4 + 64) compact();
+            }
           }
         }
       }
-      // 정렬: 공격력 → 남는 체력 → 방어
-      all.sort(function (x, y) { return y.atk - x.atk || y.left - x.left || y.def - x.def; });
-      // 같은 스탯이 나오는 조합은 하나만 (먼저 나온 것)
-      var out = [], seenStat = {};
-      for (var i = 0; i < all.length && out.length < limit; i++) {
-        var k = all[i].hp + "|" + all[i].atk + "|" + all[i].def;
-        if (seenStat[k]) continue; seenStat[k] = 1;
-        out.push(all[i]);
-      }
-      return { dragon: d, results: out, survivable: all.length, total: total, bestUnsafe: bestUnsafe };
+      compact();
+      cand.forEach(function (r) {
+        var dm = damage(A, r.def); r.hit = dm.hit; r.guard = dm.guard;
+        r.penLabel = pendantLabel(opts.pendantKind, r.pen);
+        delete r.seq;
+      });
+      if (bestUnsafe) bestUnsafe.penLabel = pendantLabel(opts.pendantKind, bestUnsafe.pen);
+      return { dragon: d, results: cand, survivable: survivable, total: gearCount * spirits.length,
+        spirits: spirits.length, spiritsChecked: checked, exactCount: !many, bestUnsafe: survivable ? null : bestUnsafe };
     });
   }
 
   root.DealerSurvive = {
     DRAGONS: DRAGONS, BASE_STATS: BASE_STATS, ACCESSORY_STATS: ACCESSORY_STATS,
     pendantOptions: pendantOptions, spiritStats: spiritStats, stat: stat, damage: damage,
-    accessoryCandidates: accessoryCandidates, solve: solve
+    accessoryCandidates: accessoryCandidates, spiritCandidates: spiritCandidates, solve: solve
   };
 })(typeof window !== "undefined" ? window : globalThis);

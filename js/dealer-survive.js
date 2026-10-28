@@ -28,6 +28,22 @@
     $("gemNote").innerHTML = '젬 1개: <span class="s-hp">체력 +' + v * 4 + '</span> / <span class="s-atk">공격 +' + v + '</span> / <span class="s-def">방어 +' + v + '</span> · 5개를 어떻게 나눌지는 자동';
   }
   function hitModeUi() { $("guardField").classList.toggle("ds-hide", $("hitMode").value !== "guard"); }
+  var MODE_NOTE = {
+    allAtk: "1~4번 모두 공%로 두고, 부가옵(체+40 / 공+10 / 방+10) 3가지를 시험합니다.",
+    allPct: "1~4번이 모두 %인 정령 전부(스탯 81가지 × 부가옵 3가지)를 시험합니다.",
+    noMakple: "%%%+(막플) 형태만 빼고 나머지 15가지 형태 전부(스탯 81가지 × 부가옵 3가지, 효과가 같은 건 하나로)를 시험합니다."
+  };
+  // 정령 최적화를 켜면 직접 입력 칸은 회색으로 잠금 (보이기는 하지만 바꿀 수 없고, 계산에도 안 씀)
+  function spiritModeUi() {
+    var m = $("spiritMode").value, opt = m !== "manual";
+    var box = $("spiritManual");
+    box.classList.remove("ds-hide");
+    box.classList.toggle("is-locked", opt);
+    box.setAttribute("aria-disabled", opt ? "true" : "false");
+    Array.prototype.forEach.call(box.querySelectorAll("select, input, button"), function (el) { el.disabled = opt; });
+    $("spiritModeNote").classList.toggle("ds-hide", !opt);
+    $("spiritModeNote").textContent = opt ? (MODE_NOTE[m] || "") + " 아래 직접 입력한 정령은 쓰지 않습니다." : "";
+  }
 
   // 용/정령 탭에서 정령 불러오기
   function fillImport() {
@@ -74,7 +90,7 @@
       slots: Array.prototype.map.call(document.querySelectorAll(".ds-slot"), function (w) {
         return { stat: w.querySelector(".sp-stat").value, mode: w.querySelector(".sp-mode").value };
       }),
-      bonus: $("spiritBonus").value, pendantKind: $("pendantKind").value, gemValue: $("gemValue").value,
+      bonus: $("spiritBonus").value, spiritMode: $("spiritMode").value, pendantKind: $("pendantKind").value, gemValue: $("gemValue").value,
       grade: $("grade").value, accMode: $("accMode").value, limit: $("limit").value,
       buffs: [$("buffHp").value, $("buffAtk").value, $("buffDef").value]
     };
@@ -84,7 +100,7 @@
     var f = null;
     try { f = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) {}
     if (!f) return;
-    ["hitMode", "hits", "guards", "bossAtk", "pendantKind", "gemValue", "grade", "accMode", "limit"].forEach(function (k) {
+    ["hitMode", "hits", "guards", "bossAtk", "spiritMode", "pendantKind", "gemValue", "grade", "accMode", "limit"].forEach(function (k) {
       if (f[k] == null || !$(k)) return;
       $(k).value = f[k];
       if ($(k).tagName === "SELECT" && $(k).selectedIndex < 0) $(k).selectedIndex = 0;   // 없어진 선택지
@@ -103,7 +119,7 @@
   function run() {
     var f = readForm();
     var opts = {
-      grade: f.grade, spirit: { slots: f.slots, bonus: f.bonus }, gemValue: +f.gemValue,
+      grade: f.grade, spirit: { slots: f.slots, bonus: f.bonus }, spiritMode: f.spiritMode, gemValue: +f.gemValue,
       pendantKind: f.pendantKind, accMode: "all", accLevel: +f.accMode || 20,
       enchantValue: 21, hits: num(f.hits, 0), guards: f.hitMode === "guard" ? num(f.guards, 0) : 0,
       bossAtk: num(f.bossAtk, 2750) || 2750, buffs: f.buffs.map(function (b) { return num(b, 0); }), limit: +f.limit || 20
@@ -132,6 +148,14 @@
     if (g[2]) p.push('<span class="s-def">방' + g[2] + '</span>');
     return "젬 " + p.join(" ");
   }
+  var SC = { "체": "s-hp", "공": "s-atk", "방": "s-def" };
+  function spiritText(sp) {
+    var slots = (sp.slots || []).map(function (s) { return '<span class="' + (SC[s.stat] || "") + '">' + esc(s.stat + s.mode) + '</span>'; }).join(" ");
+    var b = sp.bonus && sp.bonus !== "없음" ? ' · 부가옵 <span class="' + SC[sp.bonus] + '">' + esc(sp.bonus) + "+" + (sp.bonus === "체" ? 40 : 10) + '</span>' : "";
+    var grade = typeof spiritGrade === "function" ? spiritGrade(sp.slots.map(function (s) { return s.stat; }), sp.slots.map(function (s) { return s.mode; })) : null;
+    var tag = grade && typeof spiritGradeTag === "function" ? " " + spiritGradeTag(grade, { size: 10.5 }) : "";
+    return '<span class="sp">정령 ' + slots + '</span>' + b + tag;
+  }
   function colorStats(text) {
     return esc(text).replace(/(체)(\d+)/g, '<span class="s-hp">$1$2</span>').replace(/(공)(\d+)/g, '<span class="s-atk">$1$2</span>').replace(/(방)(\d+)/g, '<span class="s-def">$1$2</span>');
   }
@@ -147,27 +171,30 @@
     }).join("");
 
     var cur = lastSolved.list.filter(function (x) { return x.dragon.key === activeKey; })[0];
+    var opt = o.spiritMode && o.spiritMode !== "manual";
     var body;
     if (!cur.results.length) {
       var u = cur.bestUnsafe;
       body = '<div class="ds-empty"><b>' + esc(cur.dragon.name) + '</b>은(는) ' + esc(hitText(o)) + '을(를) 버티는 조합이 없습니다.' +
-        (u ? '<br>가장 단단하게 맞춘 조합(' + gemText(u.gems) + ', ' + colorStats(u.acc.label) + ', ' + colorStats(u.penLabel) + ')도 체력 ' + fmt(u.hp) + '에 받는 피해 ' + fmt(u.taken) + '라서 ' + fmt(1 - u.left) + ' 모자랍니다. 정타 수를 줄이거나 층 버프를 넣어 보세요.' : '') + '</div>';
+        (u ? '<br>가장 단단하게 맞춘 조합(' + (opt ? spiritText(u.spirit) + ', ' : '') + gemText(u.gems) + ', ' + colorStats(u.acc.label) + ', ' + colorStats(u.penLabel) + ')도 체력 ' + fmt(u.hp) + '에 받는 피해 ' + fmt(u.taken) + '라서 ' + fmt(1 - u.left) + ' 모자랍니다. 정타 수를 줄이거나 층 버프를 넣어 보세요.' : '') + '</div>';
     } else {
       body = '<div class="ds-list">' + cur.results.map(function (r, i) {
         return '<div class="ds-row">' +
-          '<div class="ds-rank">' + (i + 1) + '</div>' +
+          '<div class="ds-rank">' + (i + 1) + '</div><div class="ds-body">' +
           '<div class="ds-main"><span class="atk"><small>공격</small>' + fmt(r.atk) + '</span>' +
             '<span class="ds-stats"><span class="s-hp">체 <b>' + fmt(r.hp) + '</b></span><span class="s-def">방 <b>' + fmt(r.def) + '</b></span></span></div>' +
           '<div class="ds-left">받는 피해 <b>' + fmt(r.taken) + '</b> (정타 ' + fmt(r.hit) + (o.guards ? ' · 방어 ' + fmt(r.guard) : '') + ') → 남는 체력 <b>' + fmt(r.left) + '</b></div>' +
+          (opt ? '<div class="ds-spline">' + spiritText(r.spirit) + '</div>' : '') +
           '<div class="ds-gear"><span class="ds-chip">' + gemText(r.gems) + '</span><span class="ds-chip">' + colorStats(r.acc.label) + '</span><span class="ds-chip">' + colorStats(r.penLabel) + '</span></div>' +
-        '</div>';
+        '</div></div>';
       }).join("") + '</div>';
     }
 
     $("result").innerHTML =
       '<div class="ds-head"><h2>결과 · ' + esc(hitText(o)) + ' 생존</h2><small>공격력 높은 순 · 보스 공격 ' + fmt(o.bossAtk) + '</small></div>' +
       '<div class="ds-tabs">' + tabs + '</div>' +
-      '<div class="ds-head"><h2>' + esc(cur.dragon.name) + ' 상위 ' + cur.results.length + '개</h2><small>생존 조합 ' + fmt(cur.survivable) + ' / ' + fmt(cur.total) + '</small></div>' +
+      '<div class="ds-head"><h2>' + esc(cur.dragon.name) + ' 상위 ' + cur.results.length + '개</h2><small>' +
+        (opt ? '정령 후보 ' + fmt(cur.spirits) + '개 × 장비 ' + fmt(cur.total / cur.spirits) + '가지' : '생존 조합 ' + fmt(cur.survivable) + ' / ' + fmt(cur.total)) + '</small></div>' +
       body;
 
     Array.prototype.forEach.call(document.querySelectorAll(".ds-tab"), function (b) {
@@ -178,13 +205,21 @@
   // ---------- 연결 ----------
   load();
   fillImport();
-  gemNote(); hitModeUi(); paintSelects();
+  gemNote(); hitModeUi(); spiritModeUi(); paintSelects();
   document.addEventListener("change", function (e) {
     if (e.target.id === "spiritImport") return;
     if (e.target.id === "gemValue") gemNote();
     if (e.target.id === "hitMode") hitModeUi();
+    if (e.target.id === "spiritMode") spiritModeUi();
     paintSelects(); save();
   });
   document.addEventListener("input", function (e) { if (e.target.tagName === "INPUT") save(); });
-  $("calcButton").addEventListener("click", run);
+  $("calcButton").addEventListener("click", function () {
+    var btn = $("calcButton");
+    if (btn.disabled) return;
+    btn.disabled = true; btn.textContent = "계산 중…";
+    setTimeout(function () {   // 버튼 글자가 먼저 바뀌어 보이도록 한 박자 쉬고 계산
+      try { run(); } finally { btn.disabled = false; btn.textContent = "계산하기"; }
+    }, 30);
+  });
 })();
