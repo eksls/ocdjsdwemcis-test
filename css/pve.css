@@ -6,3 +6,40 @@
 
 /* 제작자 표시 숨김 (개인용) */
 .app-credit{display:none!important}
+
+/* ===== 펜던트 수동: 여러 개 목록 (js/pve-pendants.js) ===== */
+.bo-pendant-controls .bo-settings-grid--single{display:none}
+.bo-dvpl{display:grid;gap:8px;min-width:0}
+.bo-dvpl-head{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;font-weight:750;color:#475569}
+.bo-dvpl-add{height:32px;padding:0 12px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;color:#0f172a;font:inherit;font-size:12.5px;font-weight:750;cursor:pointer}
+.bo-dvpl-add:disabled{opacity:.45;cursor:default}
+.bo-dvpl-list{display:grid;gap:6px;max-height:none}
+.bo-dvpl-row{display:grid;grid-template-columns:auto 16px minmax(0,1fr) 32px;gap:5px 6px;align-items:center;padding:6px;border:1px solid #dbe2ea;border-radius:9px;background:#f8fafc}
+.bo-dvpl-row select{width:100%;min-width:0;height:30px;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#0f172a;font:inherit;font-size:12.5px;padding:0 6px}
+.bo-dvpl-lines{grid-column:1/-1;display:grid;gap:5px}
+.bo-dvpl-lines.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.bo-dvpl-lines.n3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.bo-dvpl-line{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,40px);min-width:0}
+.bo-dvpl-line select{-webkit-appearance:none;appearance:none;background-image:none;text-align:center;text-align-last:center;padding:0 2px}
+.bo-dvpl-line select:first-child{border-radius:7px 0 0 7px}
+.bo-dvpl-line select:last-child{border-radius:0 7px 7px 0;margin-left:-1px;font-weight:700}
+.bo-dvpl-line select[data-stat="hp"]{color:#2563c9;font-weight:700}
+.bo-dvpl-line select[data-stat="atk"]{color:#c8372f;font-weight:700}
+.bo-dvpl-line select[data-stat="def"]{color:#168259;font-weight:700}
+.bo-dvpl-no{font-size:12px;font-weight:800;color:#64748b;text-align:center}
+.bo-dvpl-off{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:750;color:#64748b;cursor:pointer;white-space:nowrap}
+.bo-dvpl-off input{width:15px;height:15px;margin:0;accent-color:#c8372f}
+.bo-dvpl-del{height:30px;width:32px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#64748b;font:inherit;font-size:13px;cursor:pointer;padding:0}
+.bo-dvpl-del:hover{color:#c8372f;border-color:#c8372f}
+.bo-dvpl-row.is-off{background:#eef0f4}
+.bo-dvpl-row.is-off .bo-dvpl-no,.bo-dvpl-row.is-off .bo-dvpl-kind{opacity:.4}
+.bo-dvpl-row.is-off .bo-dvpl-off{color:#c8372f}
+.bo-dvpl-note,.bo-dvpl-empty{margin:0;font-size:11.5px;color:#64748b;line-height:1.45}
+.bo-dvpl-row.is-off .bo-dvpl-lines{opacity:.4}
+/* PC·태블릿: 펜던트 칸 높이가 정해져 있으므로 목록만 안에서 스크롤 */
+@media (width>=721px){
+  .bo-card-pendant{overflow:hidden;display:flex;flex-direction:column}
+  .bo-card-pendant .bo-pendant-controls{min-height:0;flex:1;display:flex;flex-direction:column;gap:8px}
+  .bo-card-pendant .bo-dvpl{min-height:0;flex:1;grid-template-rows:auto minmax(0,1fr) auto}
+  .bo-card-pendant .bo-dvpl-list{min-height:0;overflow-y:auto;align-content:start;padding-right:3px;overscroll-behavior:contain}
+}
