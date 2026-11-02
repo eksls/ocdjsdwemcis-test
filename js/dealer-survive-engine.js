@@ -130,14 +130,14 @@
 
   // ---------- 정령 후보 ----------
   //  manual: 입력한 정령 1개 / allAtk: 올공퍼 (공% ×4, 부가옵만 체·공·방)
-  //  allPct: 올퍼 (%%%% 형태 전부) / noMakple: 막플(%%%+) 형태만 빼고 전부
+  //  allPct: 올퍼 (%%%% 형태 전부) / noMakple: 막플(%%%+) 형태만 빼고 전부 / all: 모든 형태
   var MODE_PATTERNS = (function () {
     var out = [];
     for (var m = 0; m < 16; m++) out.push([0, 1, 2, 3].map(function (i) { return (m >> (3 - i)) & 1 ? "+" : "%"; }));
     return out;   // 0번 = %%%%, 1번 = %%%+
   })();
   function spiritCandidates(mode, manual) {
-    if (mode !== "allAtk" && mode !== "allPct" && mode !== "noMakple") return [manual || { slots: [], bonus: "없음" }];
+    if (mode !== "allAtk" && mode !== "allPct" && mode !== "noMakple" && mode !== "all") return [manual || { slots: [], bonus: "없음" }];
     var list = [], seen = {};
     var bonuses = ["체", "공", "방"];
     function add(stats, modes, bonus) {
@@ -149,6 +149,7 @@
     }
     if (mode === "allAtk") { bonuses.forEach(function (b) { add(["공", "공", "공", "공"], ["%", "%", "%", "%"], b); }); return list; }
     var patterns = mode === "allPct" ? [MODE_PATTERNS[0]]
+      : mode === "all" ? MODE_PATTERNS                       // 전체: 16가지 형태 모두 (막플·극막·단막·고점막 포함)
       : MODE_PATTERNS.filter(function (p) { return p.join("") !== "%%%+"; });
     patterns.forEach(function (modes) {
       for (var c = 0; c < 81; c++) {
@@ -161,7 +162,7 @@
 
   /*
    * opts = {
-   *   grade: "9.0", spirit: {slots:[{stat,mode}]×4, bonus}, spiritMode: "manual"|"allAtk"|"allPct"|"noMakple",
+   *   grade: "9.0", spirit: {slots:[{stat,mode}]×4, bonus}, spiritMode: "manual"|"allAtk"|"allPct"|"noMakple"|"all",
    *   gemValue: 40, pendantKind: "달"|"태양", accLevel, enchantValue,
    *   hits: n, guards: m, bossAtk: 2750, buffs: [체%,공%,방%], limit: 20
    * }

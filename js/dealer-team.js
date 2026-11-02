@@ -80,17 +80,24 @@
   function renderSpirits() {
     $("spiritList").innerHTML = st.spirits.map(function (sp, i) {
       var grade = typeof spiritGrade === "function" ? spiritGrade(sp.slots.map(function (s) { return s.stat; }), sp.slots.map(function (s) { return s.mode; })) : null;
-      return '<div class="dt-row dt-sp" data-i="' + i + '">' +
+      return '<div class="dt-row dt-sp' + (sp.off ? " is-off" : "") + '" data-i="' + i + '">' +
         '<span class="dt-no">' + (i + 1) + "</span>" +
         '<div class="dt-sp-slots">' + sp.slots.map(function (s, k) {
           return '<div class="ds-pair">' + sel("sp-stat", ["공", "체", "방"], s.stat, ' data-k="' + k + '"' + statAttr(s.stat)) + sel("sp-mode", ["%", "+"], s.mode, ' data-k="' + k + '"') + "</div>";
         }).join("") + "</div>" +
         '<div class="dt-sp-bonus">' + sel("sp-bonus", [["체", "체+40"], ["공", "공+10"], ["방", "방+10"], ["없음", "부옵 없음"]], sp.bonus) +
         '<label class="dt-count"><input type="number" class="sp-n" min="1" max="99" inputmode="numeric" value="' + (sp.count || 1) + '" aria-label="정령 ' + (i + 1) + ' 개수"><span>개</span></label>' +
-        (grade && typeof spiritGradeTag === "function" ? spiritGradeTag(grade, { size: 10.5 }) : "") + "</div>" +
+        (grade && typeof spiritGradeTag === "function" ? spiritGradeTag(grade, { size: 10.5 }) : "") +
+        '<label class="dt-off" title="체크하면 계산에서 빼고 목록에는 남겨 둡니다"><input type="checkbox" class="sp-off"' + (sp.off ? " checked" : "") + '><span>미사용</span></label>' + "</div>" +
         '<button type="button" class="dt-del" aria-label="정령 ' + (i + 1) + ' 지우기">✕</button></div>';
     }).join("") || '<p class="dt-empty">"용/정령 탭에서 가져오기"를 누르거나 "+ 추가"로 정령을 넣으세요.</p>';
-    $("spiritCount").textContent = st.spirits.reduce(function (t, s) { return t + (s.count || 1); }, 0) + "개";
+    spiritCountText();
+  }
+  // 위 제목의 개수: 미사용으로 끈 정령은 빼고 셈
+  function spiritCountText() {
+    var on = 0, off = 0;
+    st.spirits.forEach(function (s) { if (s.off) off += (s.count || 1); else on += (s.count || 1); });
+    $("spiritCount").textContent = on + "개" + (off ? " (미사용 " + off + "개)" : "");
   }
   function renderGems() {
     var tot = [0, 0, 0];
@@ -153,6 +160,7 @@
     } else if (t.classList.contains("sp-stat")) { st.spirits[i].slots[+t.getAttribute("data-k")].stat = t.value; renderSpirits(); }
     else if (t.classList.contains("sp-mode")) { st.spirits[i].slots[+t.getAttribute("data-k")].mode = t.value; renderSpirits(); }
     else if (t.classList.contains("sp-bonus")) { st.spirits[i].bonus = t.value; }
+    else if (t.classList.contains("sp-off")) { st.spirits[i].off = t.checked; renderSpirits(); }
     else if (t.classList.contains("acc-level")) { st.accs[i].level = +t.value; renderAccs(); }
     else if (t.classList.contains("acc-item")) { st.accs[i].item = t.value; renderAccs(); }
     else if (t.classList.contains("acc-enc")) { st.accs[i].enchant = t.value; }
@@ -175,7 +183,7 @@
       $("gemCount").textContent = (tot[0] + tot[1] + tot[2]) + "개";
     } else if (t.classList.contains("sp-n")) {
       st.spirits[i].count = Math.max(1, num(t.value, 1));
-      $("spiritCount").textContent = st.spirits.reduce(function (q, s) { return q + (s.count || 1); }, 0) + "개";
+      spiritCountText();
     } else if (t.classList.contains("acc-n")) st.accs[i].count = num(t.value, 1);
     else if (t.classList.contains("pen-n")) st.pens[i].count = num(t.value, 1);
     else if (t.id === "buffHp") st.buffs[0] = num(t.value, 0);
@@ -232,7 +240,7 @@
     return {
       grade: st.grade, bossAtk: st.bossAtk || 2750, buffs: st.buffs.slice(), enchantValue: 21,
       groups: [{ hits: st.hitsA, guards: st.guardsA }, { hits: st.hitsB, guards: st.guardsB }],
-      slotTypes: [11, 12, 13, 14].map(function (n) { return (st.slotTypes[n] || []).slice(); }), spirits: st.spirits,
+      slotTypes: [11, 12, 13, 14].map(function (n) { return (st.slotTypes[n] || []).slice(); }), spirits: st.spirits.map(function (s) { return s.off ? { slots: s.slots, bonus: s.bonus, count: 0 } : s; }),
       gems: st.gems,
       accessories: st.accs.map(function (a) { return { level: +a.level, item: a.item, enchant: a.enchant, count: a.item === "전체" ? 0 : (+a.count || 0) }; }),
       pendants: st.pens.map(function (p) { return { kind: p.kind, opt: p.opt === "전체" ? "전체" : penVec(p.opt), count: p.opt === "전체" ? 0 : (+p.count || 0) }; }),
