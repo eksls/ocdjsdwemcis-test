@@ -876,3 +876,8 @@ html.ui-v2 .custom-pendant-container { max-width: 760px; }
 html.ui-v2 .k-field > span.s-hp { color: var(--hp); } html.ui-v2 .k-field > span.s-atk { color: var(--atk); } html.ui-v2 .k-field > span.s-def { color: var(--def); }
 @media (max-width: 420px) { html.ui-v2 .custom-pendant .option-group { grid-template-columns: minmax(0, 1fr) 40px !important; } }
 html.ui-v2 .custom-pendant .num { margin: 0 !important; padding: 0 !important; }
+
+/* 결과 카드: 버프·너프 받는 속성/타입 칩 */
+html.ui-v2 .chip.chip-buff { color: var(--buff); background: var(--buff-bg); border-color: #efd9a6; font-weight: 700; }
+html.ui-v2 .chip.chip-nerf { color: var(--nerf); background: var(--nerf-bg); border-color: #ecc5d2; font-weight: 700; }
+html.ui-v2 .chip.chip-both { color: #5b4a2e; background: linear-gradient(90deg, var(--buff-bg) 50%, var(--nerf-bg) 50%); border-color: #e3cdb9; font-weight: 700; }
