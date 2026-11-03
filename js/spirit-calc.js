@@ -69,10 +69,10 @@ function pctUp(x, p) { return x + Math.floor(x * p / 100); }
 // 고속 Vval 계산 (정령 최적화용, 로그 없음)
 function calcVvalFast(combo, spiritStat, bonus) {
     let [hp, atk, def] = dragonBaseStats[combo.type][combo.stat];
-    const lvl = combo.gemLevel;
-    hp += gemStats.체[lvl] * combo.gems.체 + potion[0];
-    atk += gemStats.공[lvl] * combo.gems.공 + potion[1];
-    def += gemStats.방[lvl] * combo.gems.방 + potion[2];
+    const gA = gemAddOf(combo);
+    hp += gA[0] + potion[0];
+    atk += gA[1] + potion[1];
+    def += gA[2] + potion[2];
     const aP = combo.accessoryOpt, eP = combo.enchantOpt;
     hp = pctUp(hp, aP[0]+eP[0]);
     atk = pctUp(atk, aP[1]+eP[1]);
@@ -319,6 +319,136 @@ function getCustomPendantOptions(){
 }
 
 // ===========================
+// 내 장비 쓰기 (장비 탭에 넣은 젬·장신구·팬던트)
+// ===========================
+const MY_ACC_DB = {
+    "황보": { 18: [0,18,0], 19: [0,19,0], 20: [0,20,0] },
+    "여보": { 18: [0,0,18], 19: [0,0,19], 20: [0,0,20] },
+    "악보": { 18: [18,0,0], 19: [19,0,0], 20: [20,0,0] },
+    "물뿔(체/공)": { 18: [12,6,0], 19: [13,6,0], 20: [14,6,0] },
+    "물뿔(체/방)": { 18: [12,0,6], 19: [13,0,6], 20: [14,0,6] },
+    "불뿔(공/체)": { 18: [6,12,0], 19: [6,13,0], 20: [6,14,0] },
+    "불뿔(공/방)": { 18: [0,12,6], 19: [0,13,6], 20: [0,14,6] },
+    "대뿔(방/체)": { 18: [6,0,12], 19: [6,0,13], 20: [6,0,14] },
+    "대뿔(방/공)": { 18: [0,6,12], 19: [0,6,13], 20: [0,6,14] },
+    "바뿔(공/체)": { 18: [9,9,0],  19: [9,10,0],  20: [10,10,0] },
+    "바뿔(공/방)": { 18: [0,9,9],  19: [0,10,9],  20: [0,10,10] },
+    "바뿔(체/방)": { 18: [9,0,9],  19: [10,0,9],  20: [10,0,10] }
+};
+const MY_GEM_LEVELS = [36, 38, 40, 42, 44];
+
+function isMyGearOn() { return !!document.getElementById("useMyGear")?.checked; }
+
+// 젬 더하기 값: 내 장비면 미리 계산한 값, 아니면 (한 단계 × 개수)
+function gemAddOf(c) {
+    if (c.gemAdd) return c.gemAdd;
+    const l = c.gemLevel;
+    return [gemStats.체[l] * c.gems.체, gemStats.공[l] * c.gems.공, gemStats.방[l] * c.gems.방];
+}
+
+function loadMyGearRaw() {
+    try { return JSON.parse(localStorage.getItem("guild_gear_data") || "null") || {}; } catch (e) { return {}; }
+}
+
+// 장비 탭 데이터 → 계산 후보
+function readMyGear() {
+    const gear = loadMyGearRaw();
+    const SI = { "체": 0, "공": 1, "방": 2 }, KR = ["체", "공", "방"];
+
+    // 젬: 스탯마다 높은 단계부터. 용 1마리라 체·공·방 젬은 서로 안 겹침
+    const lv = [[], [], []];
+    MY_GEM_LEVELS.forEach((L, i) => {
+        const g = (gear.gems || [])[i] || {};
+        KR.forEach((k, s) => { const n = Math.max(0, parseInt(g[k]) || 0); for (let j = 0; j < n; j++) lv[s].push(L); });
+    });
+    lv.forEach(a => a.sort((x, y) => y - x));
+    const per = (s, L) => s === 0 ? L * 4 : L;
+    const gems = [], seenG = new Set();
+    generateGemDistributions(5).forEach(d => {
+        const n = [Math.min(d.체, lv[0].length), Math.min(d.공, lv[1].length), Math.min(d.방, lv[2].length)];
+        const key = n.join(",");
+        if (seenG.has(key)) return; seenG.add(key);
+        const used = n.map((k, s) => lv[s].slice(0, k));
+        const gemText = used.map((a, s) => a.length ? KR[s] + " " + a.join(",") : "").filter(Boolean).join(" · ") || "없음";
+        gems.push({ gems: { 체: n[0], 공: n[1], 방: n[2] }, gemLevel: "내 젬",
+            gemAdd: used.map((a, s) => a.reduce((t, L) => t + per(s, L), 0)), gemText });
+    });
+
+    // 장신구: 이름·레벨 고른 것만. 인챈트 all = 체/공/방 중 고름, 안 고름 = 인챈트 없음
+    const accs = [], seenA = new Set();
+    (gear.accessories || []).forEach(a => {
+        const base = MY_ACC_DB[a.item]?.[parseInt(a.value)];
+        if (!base) return;
+        const ench = a.enchant === "all" ? [0, 1, 2] : (SI[a.enchant] !== undefined ? [SI[a.enchant]] : [-1]);
+        ench.forEach(e => {
+            const eo = [0, 0, 0]; if (e >= 0) eo[e] = 21;
+            const key = base.join(",") + "|" + eo.join(",");
+            if (seenA.has(key)) return; seenA.add(key);
+            accs.push({ accessoryLv: parseInt(a.value), accessoryOpt: base.slice(), enchantOpt: eo, accName: `${a.item} ${a.value}` });
+        });
+    });
+
+    // 팬던트: off 빼고. 달은 옵션 2개, 태양은 3개
+    const pens = [], seenP = new Set();
+    (gear.pendants || []).forEach(p => {
+        if (p.type !== "달" && p.type !== "태양") return;
+        const o = [0, 0, 0];
+        const add = (st, v) => { if (SI[st] !== undefined) o[SI[st]] += parseInt(v) || 0; };
+        add(p.opt1, p.stat1); add(p.opt2, p.stat2); if (p.type === "태양") add(p.opt3, p.stat3);
+        const key = o.join(",");
+        if (seenP.has(key)) return; seenP.add(key);
+        pens.push({ pendant: p.type, pendantOpt: o });
+    });
+
+    const counts = { gems: lv[0].length + lv[1].length + lv[2].length, accs: accs.length ? new Set(accs.map(a => a.accName)).size : 0, pens: pens.length };
+    // 모든 스탯이 다른 것보다 같거나 낮은 장신구·팬던트는 절대 더 좋을 수 없으므로 뺌 (계산 빨라짐)
+    const prune = (list, vec) => list.filter((x, i) => {
+        const a = vec(x);
+        return !list.some((y, j) => j !== i && (() => { const b = vec(y); return b[0] >= a[0] && b[1] >= a[1] && b[2] >= a[2] && (b[0] > a[0] || b[1] > a[1] || b[2] > a[2]); })());
+    });
+    const accsP = prune(accs, x => [x.accessoryOpt[0] + x.enchantOpt[0], x.accessoryOpt[1] + x.enchantOpt[1], x.accessoryOpt[2] + x.enchantOpt[2]]);
+    const pensP = prune(pens, x => x.pendantOpt);
+    accs.length = 0; accsP.forEach(x => accs.push(x));
+    pens.length = 0; pensP.forEach(x => pens.push(x));
+    if (!accs.length) accs.push({ accessoryLv: 0, accessoryOpt: [0, 0, 0], enchantOpt: [0, 0, 0], accName: "없음" });
+    if (!pens.length) pens.push({ pendant: "없음", pendantOpt: [0, 0, 0] });
+    return { gems, accs, pens, counts, lv };
+}
+
+// 토글: 직접 고르는 칸 잠그고, 장비 탭 요약 보여주기
+function syncMyGearUI() {
+    const on = isMyGearOn();
+    document.querySelectorAll(".k-gearfield").forEach(el => {
+        el.classList.toggle("is-locked", on);
+        el.querySelectorAll("select, input, button").forEach(x => {
+            if (on) { if (!x.disabled) { x.disabled = true; x.dataset.mgLocked = "1"; } }
+            else if (x.dataset.mgLocked) { x.disabled = false; delete x.dataset.mgLocked; }
+        });
+    });
+    const note = document.getElementById("myGearNote");
+    if (!note) return;
+    if (!on) { note.hidden = true; return; }
+    const mg = readMyGear(), KR = ["체", "공", "방"];
+    const gemTxt = mg.lv.map((a, s) => a.length ? `${KR[s]} ${a.length}개` : "").filter(Boolean).join(" · ") || "없음";
+    note.hidden = false;
+    note.classList.toggle("is-warn", !mg.counts.gems && !mg.counts.accs && !mg.counts.pens);
+    note.innerHTML = (!mg.counts.gems && !mg.counts.accs && !mg.counts.pens)
+        ? "장비 탭에 넣은 장비가 없어요. 장비 탭에서 젬·장신구·팬던트를 넣어 주세요."
+        : `장비 탭 장비로 계산: <b>젬</b> ${gemTxt} · <b>장신구</b> ${mg.counts.accs}개 · <b>팬던트</b> ${mg.counts.pens}개<br>`
+          + `가진 것 중에서 고릅니다 (젬은 스탯마다 높은 단계부터 5개까지).`;
+}
+document.addEventListener("DOMContentLoaded", () => {
+    const t = document.getElementById("useMyGear");
+    if (!t) return;
+    try { t.checked = localStorage.getItem("dv1-spirit-mygear") === "1"; } catch (e) {}
+    t.addEventListener("change", () => { try { localStorage.setItem("dv1-spirit-mygear", t.checked ? "1" : "0"); } catch (e) {} syncMyGearUI(); });
+    syncMyGearUI();
+});
+// 다른 탭에서 장비를 바꾸고 돌아오면 요약 새로 고침
+window.addEventListener("focus", () => { if (isMyGearOn()) syncMyGearUI(); });
+document.addEventListener("visibilitychange", () => { if (!document.hidden && isMyGearOn()) syncMyGearUI(); });
+
+// ===========================
 // 3️⃣ UI 옵션 읽기
 // ===========================
 function gatherOptions(customPendantOn){
@@ -337,40 +467,31 @@ function gatherOptions(customPendantOn){
     if (!statValue) throw new Error("용 스탯 선택 안 됨");
     const dragonStats = [statValue];
 
-// 🔹 젬 레벨
-const gemLevel = parseInt(
-    document.querySelector(".gem-select")?.value
-);
-if (!gemLevel) throw new Error("젬 레벨 선택 안 됨");
+const myGear = isMyGearOn();
+let gemCombos, accCombos, penCombos;
+if (myGear) {
+    const mg = readMyGear();
+    gemCombos = mg.gems; accCombos = mg.accs; penCombos = mg.pens;
+} else {
+    // 🔹 젬 레벨 (한 단계로 5개)
+    const gemLevel = parseInt(document.querySelector(".gem-select")?.value);
+    if (!gemLevel) throw new Error("젬 레벨 선택 안 됨");
+    gemCombos = generateGemDistributions(5).map(g => ({ gems: g, gemLevel }));
 
-// 🔹 젬 분배 (🔥 이 줄이 빠져 있었음)
-const gemDistributions = generateGemDistributions(5);
-
-    // 🔹 장신구
+    // 🔹 장신구 (그 레벨의 12종 × 인챈트 체/공/방)
     const accRaw = document.querySelector(".accessory-select")?.value;
     if (!accRaw) throw new Error("장신구 선택 안 됨");
-    const accessories = [parseInt(accRaw)];
+    const accLv = parseInt(accRaw);
+    accCombos = [];
+    accessoryStats[accLv].forEach(accOpt => enchantStats.forEach(enchantOpt => accCombos.push({ accessoryLv: accLv, accessoryOpt: accOpt, enchantOpt })));
 
-    // 🔹 팬던트
-let pendants = [];
-let pendantOptionsMap = {};
-
-// 🔹 기본 팬던트
-const basePendant = document.querySelector(".pendant-select")?.value;
-if(!basePendant) throw new Error("팬던트 선택 안 됨");
-
-pendants.push(basePendant);
-pendantOptionsMap[basePendant] = pendantStats[basePendant];
-
-// 🔹 커스텀 팬던트 추가
-if(customPendantOn){
-    const customOpts = getCustomPendantOptions();
-
-    customOpts.forEach((opt, i)=>{
-        const name = `커스텀${i+1}`;
-        pendants.push(name);
-        pendantOptionsMap[name] = [opt]; // 단일 옵션
-    });
+    // 🔹 팬던트 (기본 + 커스텀)
+    const basePendant = document.querySelector(".pendant-select")?.value;
+    if (!basePendant) throw new Error("팬던트 선택 안 됨");
+    penCombos = pendantStats[basePendant].map(o => ({ pendant: basePendant, pendantOpt: o }));
+    if (customPendantOn) {
+        getCustomPendantOptions().forEach((opt, i) => penCombos.push({ pendant: `커스텀${i + 1}`, pendantOpt: opt }));
+    }
 }
 
     // 🔹 버프
@@ -400,36 +521,9 @@ switch(buffMode){
 
 
     // 🔹 옵션 풀 생성
-types.forEach(type=>{
-    dragonStats.forEach(stat=>{
-        gemDistributions.forEach(gems=>{
-            accessories.forEach(accLv=>{
-    accessoryStats[accLv].forEach(accOpt=>{
-            enchantStats.forEach(enchantOpt=>{
-        pendants.forEach(pName=>{
-pendantOptionsMap[pName].forEach(pOpt=>{
-                buffs.forEach(buff=>{
-                    optionPool.push({
-                        type,
-                        stat,
-                        gems,
-                        gemLevel,
-                        accessoryLv: accLv,
-                        accessoryOpt: accOpt,   // ← 배열 [체%,공%,방%]
-                        enchantOpt: enchantOpt ?? [0,0,0], 
-                        pendant: pName,
-                        pendantOpt: pOpt,       // ← 배열 [체%,공%,방%]
-                        buff
-                    });
-                });
-            });
-            });
-        });
-    });
-});
-        });
-    });
-});
+    types.forEach(type => dragonStats.forEach(stat => gemCombos.forEach(gc => accCombos.forEach(ac => penCombos.forEach(pc => buffs.forEach(buff => {
+        optionPool.push({ type, stat, ...gc, ...ac, ...pc, buff });
+    }))))));
     return optionPool;
 }
 
@@ -499,13 +593,13 @@ function calcVval(combo, spirit){
     log.push(`용 기본 스탯: 체${base체}, 공${base공}, 방${base방}`);
 
     // 1️⃣ 젬 적용
-const lvl = combo.gemLevel;
+const gA = gemAddOf(combo);
 
-base체 += gemStats.체[lvl] * combo.gems.체;
-base공 += gemStats.공[lvl] * combo.gems.공;
-base방 += gemStats.방[lvl] * combo.gems.방;
+base체 += gA[0];
+base공 += gA[1];
+base방 += gA[2];
 log.push(
-  `젬 적용 (Lv.${combo.gemLevel}) ` +
+  `젬 적용 (${combo.gemText || "Lv." + combo.gemLevel}) ` +
   `체${combo.gems.체}, 공${combo.gems.공}, 방${combo.gems.방} → ` +
   `체${base체}, 공${base공}, 방${base방}`
 );
@@ -724,7 +818,7 @@ function formatRow(b){
         center(formatBuff(b.buff), COL.buff),
         center(formatPercent(b.pendantOpt), COL.pendant),
         center(`Lv${b.gemLevel}`, COL.gemLv),
-        center(formatGems(b.gems), COL.gems),
+        center(b.gemText || formatGems(b.gems), COL.gems),
         center(formatPercent(b.accessoryOpt), COL.acc),
         center(
             b.enchant && b.enchant.some(v=>v>0)
@@ -814,7 +908,7 @@ function optimizeSpiritExact(optionPool, minStats) {
     const results = [];
     for (const c of optionPool) {
         const base = dragonBaseStats[c.type][c.stat];
-        const gemAdd = [gemStats.체[c.gemLevel] * c.gems.체, gemStats.공[c.gemLevel] * c.gems.공, gemStats.방[c.gemLevel] * c.gems.방];
+        const gemAdd = gemAddOf(c);
         const buffAdd = [0, 0, 0];
         (BUFF_LIST[c.buff] || []).forEach(b => { const si = STAT_KR.indexOf(b); buffAdd[si] += Math.floor(base[si] * 0.2); });
         const tabs = [0, 1, 2].map(s => statTable(s, pctUp(base[s] + gemAdd[s] + potion[s], c.accessoryOpt[s] + c.enchantOpt[s]), c.pendantOpt[s], buffAdd[s]));
@@ -910,7 +1004,7 @@ function optimizeSpiritPerArrangement(optionPool, minStats, otherKeyFn, limit, s
     const reps = new Map();
     for (const c of optionPool) {
         const base = dragonBaseStats[c.type][c.stat];
-        const gemAdd = [gemStats.체[c.gemLevel] * c.gems.체, gemStats.공[c.gemLevel] * c.gems.공, gemStats.방[c.gemLevel] * c.gems.방];
+        const gemAdd = gemAddOf(c);
         const buffAdd = [0, 0, 0];
         (BUFF_LIST[c.buff] || []).forEach(b => { const si = STAT_KR.indexOf(b); buffAdd[si] += Math.floor(base[si] * 0.2); });
         const tabs = [0, 1, 2].map(s => table(s, pctUp(base[s] + gemAdd[s] + potion[s], c.accessoryOpt[s] + c.enchantOpt[s]), c.pendantOpt[s], buffAdd[s]));
@@ -976,7 +1070,7 @@ function runCalc(){
             const todo = rows.filter(r => r.tarSelf == null);
             if (!todo.length) return;
             const refPool = todo.map((r, i) => ({
-                __i: i, type: r.type, stat: r.stat, gems: r.gems, gemLevel: r.gemLevel,
+                __i: i, type: r.type, stat: r.stat, gems: r.gems, gemLevel: r.gemLevel, gemAdd: r.gemAdd, gemText: r.gemText, accName: r.accName,
                 accessoryLv: r.accessoryLv, accessoryOpt: r.accessoryOpt, enchantOpt: r.enchantOpt ?? r.enchant ?? [0, 0, 0],
                 pendant: r.pendant, pendantOpt: r.pendantOpt, buff: r.buff
             }));
@@ -1066,8 +1160,8 @@ function runCalc(){
                 <td class="c-buff" data-label="버프">${c(formatBuff(b.buff))}</td>
                 <td class="c-pen" data-label="팬던트">${c(formatPercent(b.pendantOpt) || "-")}</td>
                 <td class="c-gemlv" data-label="젬Lv">${b.gemLevel}</td>
-                <td class="c-gems" data-label="젬분배">${c(formatGems(b.gems))}</td>
-                <td class="c-acc" data-label="장신구">${c(formatPercent(b.accessoryOpt))}</td>
+                <td class="c-gems" data-label="젬분배">${c(b.gemText || formatGems(b.gems))}</td>
+                <td class="c-acc" data-label="장신구">${b.accName ? `<span class="acc-name" style="font-size:.86em;opacity:.75">${b.accName}</span> ` : ""}${c(formatPercent(b.accessoryOpt) || "-")}</td>
                 <td class="c-ench" data-label="인챈">${c(b.enchant.some(v=>v>0) ? formatPercent(b.enchant) : "-")}</td>
                 ${spiritTd}
                 <td class="vval" data-label="비벨">${b.Vval.toLocaleString()}</td>
