@@ -609,7 +609,22 @@ document.addEventListener("DOMContentLoaded", function() {
             const penText = res.penN === "없음" ? `<span class="sub">없음</span>`
                 : `${escHtml(res.penN)} <span class="sub">${escHtml(res.penDetails)}</span>`;
             const bp = res.buffPreview;
-            const tags = [res.dA, res.dT, res.dS].filter(Boolean).map(t => `<span class="chip">${escHtml(t)}</span>`).join("");
+            // 속성·타입 칩 색: 버프 받으면 버프색, 너프 받으면 너프색, 둘 다면 둘 다, 없으면 그대로
+            const bv = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+            const okStat = (v) => v === "체" || v === "공" || v === "방";
+            const STAT_KR = { "체": "체력", "공": "공격", "방": "방어" };
+            const chipFor = (text, buffOn, nerfOn, buffStat, nerfStat) => {
+                const cls = buffOn && nerfOn ? " chip-both" : buffOn ? " chip-buff" : nerfOn ? " chip-nerf" : "";
+                const tip = [buffOn ? `버프 ${STAT_KR[buffStat]} +20%` : "", nerfOn ? `너프 ${STAT_KR[nerfStat]} -20%` : ""].filter(Boolean).join(" · ");
+                return `<span class="chip${cls}"${tip ? ` title="${tip}"` : ""}>${escHtml(text)}</span>`;
+            };
+            const attrChip = res.dA ? chipFor(res.dA,
+                res.dA === bv("buff-attr") && okStat(bv("buff-stat1")), res.dA === bv("debuff-attr") && okStat(bv("debuff-stat1")),
+                bv("buff-stat1"), bv("debuff-stat1")) : "";
+            const typeChip = res.dT ? chipFor(res.dT,
+                res.dT === bv("buff-type") && okStat(bv("buff-stat2")), res.dT === bv("debuff-type") && okStat(bv("debuff-stat2")),
+                bv("buff-stat2"), bv("debuff-stat2")) : "";
+            const tags = attrChip + typeChip + (res.dS ? `<span class="chip">${escHtml(res.dS)}</span>` : "");
             el.innerHTML = `
             <article class="rc">
                 <header class="rc-head">
