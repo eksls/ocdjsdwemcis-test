@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <script src="js/ui-mode.js?v=20261103"></script>
   <title>비벨 계산기</title>
-  <link rel="stylesheet" href="css/spirit-calc.css">
+  <link rel="stylesheet" href="css/spirit-calc.css?v=20261104">
 </head>
 <body>
 
@@ -41,7 +41,11 @@
 </section>
 
 <section class="k-card">
-  <div class="k-card-h"><h2>용 · 장비</h2></div>
+  <div class="k-card-h"><h2>용 · 장비</h2>
+    <div class="k-toggles">
+      <label class="k-chip"><input type="checkbox" id="useMyGear"><span>내 장비 쓰기</span></label>
+    </div>
+  </div>
   <div class="k-grid k-grid-5">
     <label class="k-field"><span>용 타입</span>
       <select class="dragon-type"><option>전체</option><option>체</option><option>공</option><option>방</option><option>체공</option><option>체방</option><option>공방</option></select>
@@ -49,22 +53,24 @@
     <label class="k-field"><span>용 스탯</span>
       <select class="dragon-stat"><option value="10">10.0</option><option value="9" selected>9.0</option><option value="8">8.0</option><option value="7">7.0</option></select>
     </label>
-    <label class="k-field"><span>젬</span>
+    <label class="k-field k-gearfield"><span>젬</span>
       <select class="gem-select"><option value="44">44</option><option value="42">42</option><option value="40">40</option><option value="39">39</option><option value="38">38</option><option value="37" selected>37</option><option value="36">36</option></select>
     </label>
-    <label class="k-field"><span>장신구</span>
+    <label class="k-field k-gearfield"><span>장신구</span>
       <select class="accessory-select"><option>20%</option><option selected>19%</option><option>18%</option></select>
     </label>
-    <label class="k-field"><span>팬던트</span>
+    <label class="k-field k-gearfield"><span>팬던트</span>
       <select class="pendant-select"><option>없음</option><option selected>달</option><option>태양</option></select>
     </label>
   </div>
 
-  <div class="k-sub-h">
+  <p class="k-note k-mygear-note" id="myGearNote" hidden></p>
+
+  <div class="k-sub-h k-gearfield">
     <label class="k-chip"><input type="checkbox" id="customPendantEnabled"><span>커스텀 팬던트</span></label>
     <button type="button" id="btnAddPendant" class="k-btn-sm" onclick="addPendant()" disabled>+ 팬던트 추가</button>
   </div>
-  <div class="custom-pendant-container" id="pendantContainer"></div>
+  <div class="custom-pendant-container k-gearfield" id="pendantContainer"></div>
 
   <div class="k-sub-h"><b>스탯 최솟값</b><small>이보다 낮은 조합은 빼고 보여줌</small></div>
   <div class="k-grid k-grid-3">
@@ -93,7 +99,7 @@
 </div>
 <script src="js/spirit-grade.js?v=20261026"></script>
 <script src="js/tar.js?v=20261026e"></script>
-<script src="js/spirit-calc.js?v=20261028d"></script>
+<script src="js/spirit-calc.js?v=20261104"></script>
 
 </body>
 </html>
