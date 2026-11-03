@@ -184,10 +184,15 @@ run: function() {
         const attrMap = { "earth": "땅", "water": "물", "fire": "불", "wind": "바람", "light": "빛", "dark": "어둠", "dawn": "여명", "dusk": "황혼", "nightmare": "악몽" };
         const krToAttrKey = { "땅": "earth", "물": "water", "불": "fire", "바람": "wind", "빛": "light", "어둠": "dark", "여명": "dawn", "황혼": "dusk", "악몽": "nightmare" };
 
-        const config = {
+        // 화면 값 그대로 (저장/복원용)
+        const rawConfig = {
             b1: getV("buff-attr"), b2: getV("buff-stat1"), b3: getV("buff-type"), b4: getV("buff-stat2"),
             d1: getV("debuff-attr"), d2: getV("debuff-stat1"), d3: getV("debuff-type"), d4: getV("debuff-stat2")
         };
+        // 계산용: "선택"(안 고름)은 null — "선택"이 속성 이름처럼 취급돼 예비 정령이 버프/너프를 받던 문제 수정
+        const _pick = (v) => (v && v !== "선택") ? v : null;
+        const config = {};
+        Object.keys(rawConfig).forEach(k => { config[k] = _pick(rawConfig[k]); });
 
         const maxReserve = parseInt(getV("reserve-count")) || 0;
         const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
@@ -283,10 +288,10 @@ run: function() {
         // 멀티플라이어 계산 헬퍼
         function _calcMult(dragonAttrKr, dragonType) {
             let mult = [0, 0, 0];
-            if (dragonAttrKr === config.b1 && statIdx[config.b2] !== undefined) mult[statIdx[config.b2]] += 0.2;
-            if (dragonType === config.b3 && statIdx[config.b4] !== undefined) mult[statIdx[config.b4]] += 0.2;
-            if (dragonAttrKr === config.d1 && statIdx[config.d2] !== undefined) mult[statIdx[config.d2]] -= 0.2;
-            if (dragonType === config.d3 && statIdx[config.d4] !== undefined) mult[statIdx[config.d4]] -= 0.2;
+            if (config.b1 && dragonAttrKr === config.b1 && statIdx[config.b2] !== undefined) mult[statIdx[config.b2]] += 0.2;
+            if (config.b3 && dragonType === config.b3 && statIdx[config.b4] !== undefined) mult[statIdx[config.b4]] += 0.2;
+            if (config.d1 && dragonAttrKr === config.d1 && statIdx[config.d2] !== undefined) mult[statIdx[config.d2]] -= 0.2;
+            if (config.d3 && dragonType === config.d3 && statIdx[config.d4] !== undefined) mult[statIdx[config.d4]] -= 0.2;
             return mult;
         }
 
@@ -539,7 +544,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: config, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
+        const saveData = { buffs: rawConfig, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -619,10 +624,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 return `<span class="chip${cls}"${tip ? ` title="${tip}"` : ""}>${escHtml(text)}</span>`;
             };
             const attrChip = res.dA ? chipFor(res.dA,
-                res.dA === bv("buff-attr") && okStat(bv("buff-stat1")), res.dA === bv("debuff-attr") && okStat(bv("debuff-stat1")),
+                res.dA !== "선택" && res.dA === bv("buff-attr") && okStat(bv("buff-stat1")), res.dA !== "선택" && res.dA === bv("debuff-attr") && okStat(bv("debuff-stat1")),
                 bv("buff-stat1"), bv("debuff-stat1")) : "";
             const typeChip = res.dT ? chipFor(res.dT,
-                res.dT === bv("buff-type") && okStat(bv("buff-stat2")), res.dT === bv("debuff-type") && okStat(bv("debuff-stat2")),
+                res.dT !== "선택" && res.dT === bv("buff-type") && okStat(bv("buff-stat2")), res.dT !== "선택" && res.dT === bv("debuff-type") && okStat(bv("debuff-stat2")),
                 bv("buff-stat2"), bv("debuff-stat2")) : "";
             const tags = attrChip + typeChip + (res.dS ? `<span class="chip">${escHtml(res.dS)}</span>` : "");
             el.innerHTML = `
