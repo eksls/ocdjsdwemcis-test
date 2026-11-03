@@ -437,3 +437,9 @@ padding-left: 10px !important;
   pointer-events: none; /* 클릭 방지 */
   filter: grayscale(1);
 }
+/* 내 장비 쓰기: 직접 고르는 젬·장신구·팬던트 칸 잠금 */
+.k-gearfield.is-locked { opacity: .42; pointer-events: none; filter: grayscale(.4); }
+.k-mygear-note { margin: 10px 0 0; padding: 8px 10px; border-radius: 10px; background: #eef4ff; color: #2a3d66; font-size: 12.5px; line-height: 1.5; }
+.k-mygear-note b { font-weight: 700; }
+.k-mygear-note.is-warn { background: #fff4e5; color: #8a4b00; }
+.k-mygear-note[hidden] { display: none !important; }
