@@ -73,3 +73,13 @@ html.ui-v2 .cm-block[hidden], html.ui-v2 #buffAttrBox[hidden], html.ui-v2 #buffA
 @media (min-width: 720px) {
   html.ui-v2 .cm-row > summary { grid-template-areas: "rank name v stats tar" "rank bufs bufs bufs bufs" "rank gap gap gap gap"; }
 }
+
+/* TAR 세 가지 */
+html.ui-v2 .cm-tar-sub { font-size: 11px; color: var(--ink-3); white-space: nowrap; margin-top: 1px; }
+html.ui-v2 .cm-adv { font-size: 11.5px; font-weight: 700; color: #0b5d43; background: #dff3ea; border: 1px solid #bfe5d3; border-radius: 999px; padding: 0 8px; }
+html.ui-v2 .cm-sort-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 720px) { html.ui-v2 .cm-sort-grid { grid-template-columns: minmax(0, 420px); } }
+html.ui-v2 .cm-grade-line { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--ink-3); }
+html.ui-v2 .cm-grade-line .cm-grade-box { min-height: 0; padding: 0; }
+html.ui-v2 .cm-tar-sub { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; line-height: 1.35; }
+@media (min-width: 720px) { html.ui-v2 .cm-tar-sub { flex-direction: row; gap: 6px; } html.ui-v2 .cm-tar-sub span + span::before { content: "· "; } }
