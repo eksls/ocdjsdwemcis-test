@@ -155,8 +155,8 @@
   }
 
   function buffPcts(dragon, buffAttr) {
-    // buffAttr = [체 버프 속성, 공 버프 속성, 방 버프 속성] ("" = 없음)
-    return [0, 1, 2].map(function (s) { return buffAttr && buffAttr[s] && buffAttr[s] === dragon.attr ? BUFF[s] : 0; });
+    // buffAttr = [체 버프 속성, 공 버프 속성, 방 버프 속성] ("" = 없음, "*" = 전체 속성)
+    return [0, 1, 2].map(function (s) { var a = buffAttr && buffAttr[s]; return a && (a === "*" || a === dragon.attr) ? BUFF[s] : 0; });
   }
   function buffKey(bp) { return (bp[0] ? "체" : "") + (bp[1] ? "공" : "") + (bp[2] ? "방" : "") || "0"; }
 
@@ -246,6 +246,60 @@
     });
   }
 
+  // 같은 장비 후보(젬·장신구·팬던트 단계) 안에서 낼 수 있는 최고 비벨 (정령 + 장비 함께 최적)
+  //  정령 4칸을 어느 스탯에 줄지(81가지) 정하면, 각 칸의 %/+ 는 스탯마다 따로 고르면 됨
+  //  → 스탯 표마다 "칸 묶음별 최고값"을 미리 구해 두고 81 × 부가옵 3 = 243번 곱셈으로 끝 (정확한 최댓값)
+  var ASSIGN = null;
+  function assignments() {
+    if (ASSIGN) return ASSIGN;
+    ASSIGN = [];
+    for (var m = 0; m < 81; m++) { var mk = [0, 0, 0], mm = m; for (var i = 0; i < 4; i++) { mk[mm % 3] |= 1 << i; mm = (mm / 3) | 0; } ASSIGN.push(mk); }
+    return ASSIGN;
+  }
+  function bestOverall(d, bp, gear) {
+    var base = [d.hp, d.atk, d.def], memo = {};
+    function table(s, gemAdd, accP, penP) {
+      var key = s + "|" + gemAdd + "|" + accP + "|" + penP;
+      if (memo[key]) return memo[key];
+      var bv = new Float64Array(32), bt = new Int32Array(32);   // [mask*2 + 부가옵] → 최고값, 그때 + 칸
+      for (var mask = 0; mask < 16; mask++) for (var tp = 0; tp < 16; tp++) {
+        if ((tp & ~mask) !== 0) continue;
+        var pct = 0, plus = 0;
+        for (var i = 0; i < 4; i++) if (mask & (1 << i)) { if (tp & (1 << i)) plus += SP_PLUS[i] * (s === 0 ? 4 : 1); else pct += SP_PCT[i]; }
+        for (var b = 0; b < 2; b++) {
+          var v = stat(base[s], gemAdd, s, accP, pct, plus, penP, b ? SP_BONUS[s] : 0, bp[s]);
+          if (v > bv[mask * 2 + b]) { bv[mask * 2 + b] = v; bt[mask * 2 + b] = tp; }
+        }
+      }
+      return (memo[key] = { bv: bv, bt: bt });
+    }
+    var A = assignments(), best = 0, bc = null, seen = {};
+    gear.gems.forEach(function (g) { gear.accs.forEach(function (a) { gear.pens.forEach(function (p) {
+      var k = g.add.join() + "|" + a.pct.join() + "|" + p.pct.join();
+      if (seen[k]) return; seen[k] = 1;
+      var T0 = table(0, g.add[0], a.pct[0], p.pct[0]).bv, T1 = table(1, g.add[1], a.pct[1], p.pct[1]).bv, T2 = table(2, g.add[2], a.pct[2], p.pct[2]).bv;
+      for (var j = 0; j < 81; j++) {
+        var m0 = A[j][0] * 2, m1 = A[j][1] * 2, m2 = A[j][2] * 2;
+        var x0 = T0[m0], x1 = T1[m1], x2 = T2[m2];
+        var v0 = T0[m0 + 1] * x1 * x2, v1 = x0 * T1[m1 + 1] * x2, v2 = x0 * x1 * T2[m2 + 1];
+        if (v0 > best) { best = v0; bc = [g, a, p, j, 0]; }
+        if (v1 > best) { best = v1; bc = [g, a, p, j, 1]; }
+        if (v2 > best) { best = v2; bc = [g, a, p, j, 2]; }
+      }
+    }); }); });
+    if (!bc) return null;
+    // 정령 복원
+    var g = bc[0], a = bc[1], p = bc[2], mk = A[bc[3]], bon = bc[4];
+    var tps = [0, 1, 2].map(function (s) { return table(s, g.add[s], a.pct[s], p.pct[s]).bt[mk[s] * 2 + (bon === s ? 1 : 0)]; });
+    var slots = [0, 1, 2, 3].map(function (i) {
+      var s = mk[0] & (1 << i) ? 0 : mk[1] & (1 << i) ? 1 : 2;
+      return { stat: s, type: tps[s] & (1 << i) ? "+" : "%" };
+    });
+    var r = evalOne(d, g, a, p, spiritEffect(slots, bon), bp);
+    r.gem = g; r.acc = a; r.pen = p; r.slots = slots; r.bonus = bon;
+    return r;
+  }
+
   // TAR (디비룡 TAR 과 같은 점수식): r = 비벨 ÷ 기준(TAR 100%)
   function tarScore(v, M) {
     if (!M || !v) return null;
@@ -266,7 +320,7 @@
     DRAGONS: DRAGONS, ATTRS: ATTRS, SK: SK, GEM_LEVELS: GEM_LEVELS, ACC_LEVELS: ACC_LEVELS, PENDANTS: PENDANTS,
     BUFF: BUFF, ENC: ENC, stat: stat, spiritEffect: spiritEffect, spiritLabel: spiritLabel, allSpirits: allSpirits,
     gemCombos: gemCombos, accList: accList, accCombos: accCombos, prune: prune, buffPcts: buffPcts, buffKey: buffKey,
-    evalOne: evalOne, bestGear: bestGear, optimizeSpirits: optimizeSpirits, bestSpiritForGear: bestSpiritForGear, tarScore: tarScore, referenceGear: referenceGear
+    evalOne: evalOne, bestGear: bestGear, optimizeSpirits: optimizeSpirits, bestOverall: bestOverall, bestSpiritForGear: bestSpiritForGear, tarScore: tarScore, referenceGear: referenceGear
   };
   root.CHAMP21 = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

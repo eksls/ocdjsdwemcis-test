@@ -1,8 +1,10 @@
 /*
  * 챔대 21층 화면
- *  - 내 정령 넣기: 19마리 전부에 넣어 보고 (용마다 장비 최적) 비벨·스탯·TAR 을 보여줌
+ *  - 내 정령 넣기: 고른 용(전체 / 속성 / 1마리)에 넣어 보고 (용마다 장비 최적) 비벨·스탯·TAR 을 보여줌
  *  - 정령 최적화: 고른 용 / 속성의 용만, 정령 3888가지 × 장비 전부 → 비벨 높은 정령 순
- *  - TAR: n% = 같은 장비에서 가장 좋은 정령 대비, (m%) = 디비룡 TAR 식으로 그 용의 TAR 100% 기준 대비
+ *  - SAR (Spirit Achievement Rate): 같은 장비에서 가장 좋은 정령 대비 % — 장비 영향 없이 정령만 비교
+ *    최고장비 SAR: 이 정령을 TAR 100% 기준 장비에 넣었을 때 ÷ TAR 100%
+ *  - TAR: 디비룡 TAR 식으로 그 용의 TAR 100% 기준 대비 (장비 포함)
  *  입력은 이 기기 브라우저에 저장 (dv1- 로 시작 → ⋯ 메뉴 초기화 때 같이 지워짐)
  */
 (function () {
@@ -23,7 +25,7 @@
       '<select class="sp-stat" aria-label="' + (i + 1) + '번 스탯"><option value="0">체</option><option value="1">공</option><option value="2">방</option></select>' +
       '<select class="sp-type" aria-label="' + (i + 1) + '번 종류"><option>%</option><option>+</option></select></div></div>';
   }).join("");
-  var attrOpts = '<option value="">없음</option>' + E.ATTRS.map(function (a) { return "<option>" + a + "</option>"; }).join("");
+  var attrOpts = '<option value="">없음</option><option value="*">전체</option>' + E.ATTRS.map(function (a) { return "<option>" + a + "</option>"; }).join("");
   ["buffHp", "buffAtk", "buffDef"].forEach(function (id) { $(id).innerHTML = attrOpts; });
   $("gemLevel").innerHTML = E.GEM_LEVELS.map(function (L) { return '<option value="' + L + '"' + (L === 40 ? " selected" : "") + ">" + L + "</option>"; }).join("");
   $("accLevel").innerHTML = E.ACC_LEVELS.map(function (L) { return '<option value="' + L + '"' + (L === 19 ? " selected" : "") + ">" + L + "%</option>"; }).join("");
@@ -36,7 +38,20 @@
     h += '</optgroup><optgroup label="용 1마리">';
     E.DRAGONS.forEach(function (d, i) { h += '<option value="d:' + i + '">' + d.name + " (" + d.attr + ")</option>"; });
     $("optTarget").innerHTML = h + "</optgroup>";
+    // 내 정령 넣기: 전체도 고를 수 있음
+    $("inTarget").innerHTML = '<option value="all">전체 19마리</option>' + h + "</optgroup>";
   })();
+  // 고른 대상 → 용 목록 ("all" / "a:속성" / "d:번호")
+  function targetList(v) {
+    if (v === "all") return E.DRAGONS.slice();
+    if (v && v.indexOf("a:") === 0) { var a = v.slice(2); return E.DRAGONS.filter(function (d) { return d.attr === a; }); }
+    return [E.DRAGONS[+String(v).slice(2)]].filter(Boolean);
+  }
+  function targetName(v, n) {
+    if (v === "all") return "19마리";
+    if (v && v.indexOf("a:") === 0) return v.slice(2) + " " + n + "마리";
+    return n ? targetList(v)[0].name : "";
+  }
 
   // 기본 정령: 체% 공% 방% 체+
   var spStats = slotsEl.querySelectorAll(".sp-stat"), spTypes = slotsEl.querySelectorAll(".sp-type");
@@ -155,7 +170,9 @@
     }
     var seen = {};
     pens = pens.filter(function (p) { var k = p.pct.join(); if (seen[k]) return false; seen[k] = 1; return true; });
-    return { gems: gems, accs: E.prune(accs, function (x) { return x.pct; }), pens: E.prune(pens, function (x) { return x.pct; }) };
+    var out = { gems: gems, accs: E.prune(accs, function (x) { return x.pct; }), pens: E.prune(pens, function (x) { return x.pct; }) };
+    out.sig = out.gems.map(function (g) { return g.add.join(","); }).join(";") + "/" + out.accs.map(function (a) { return a.pct.join(","); }).join(";") + "/" + out.pens.map(function (p) { return p.pct.join(","); }).join(";");
+    return out;
   }
 
   // ── 정령 입력 ─────────────────────────────────────────────
@@ -187,8 +204,8 @@
   function save() {
     try {
       localStorage.setItem(SAVE, JSON.stringify({
-        mode: spMode(), sp: inputSpirit(), sort: $("sortMode").value, target: $("optTarget").value, limit: $("optLimit").value,
-        buff: [$("buffHp").value, $("buffAtk").value, $("buffDef").value], buffMode: buffMode(), buffMulti: $("buffMulti").checked,
+        mode: spMode(), sp: inputSpirit(), sort: $("sortMode").value, target: $("optTarget").value, inTarget: $("inTarget").value, limit: $("optLimit").value,
+        buff: [$("buffHp").value, $("buffAtk").value, $("buffDef").value], buffMode: buffMode(),
         gem: $("gemLevel").value, acc: $("accLevel").value, pen: $("penKind").value,
         myGear: $("useMyGear").checked, customOn: $("customPenOn").checked, custom: customPenData()
       }));
@@ -201,17 +218,19 @@
     var set = function (id, v) { var el = $(id); if (el && v != null && Array.prototype.some.call(el.options || [], function (o) { return o.value === String(v); })) el.value = String(v); };
     if (s.sp && s.sp.slots) s.sp.slots.forEach(function (o, i) { if (spStats[i]) { spStats[i].value = String(o.stat); spTypes[i].value = o.type === "+" ? "+" : "%"; } });
     if (s.sp) set("spBonus", s.sp.bonus);
-    set("sortMode", s.sort); set("optTarget", s.target); set("optLimit", s.limit);
-    if (s.buff) { set("buffHp", s.buff[0]); set("buffAtk", s.buff[1]); set("buffDef", s.buff[2]); }
+    set("sortMode", s.sort); set("optTarget", s.target); set("inTarget", s.inTarget); set("optLimit", s.limit);
+    if (s.buff) {
+      var used = {};
+      ["buffHp", "buffAtk", "buffDef"].forEach(function (id, k) { var v = s.buff[k]; if (v && !used[v]) { used[v] = 1; set(id, v); } });
+    }
     set("gemLevel", s.gem); set("accLevel", s.acc); set("penKind", s.pen);
     $("useMyGear").checked = !!s.myGear; $("customPenOn").checked = !!s.customOn;
     $("customPenList").classList.toggle("disabled-ui", !s.customOn);
     (s.custom && s.custom.length ? s.custom : [null]).forEach(function (c) { addPen(c); });
     var r = document.querySelector('input[name="spMode"][value="' + (s.mode === "opt" ? "opt" : "input") + '"]'); if (r) r.checked = true;
     var rb = document.querySelector('input[name="buffMode"][value="' + (s.buffMode === "opt" ? "opt" : "attr") + '"]'); if (rb) rb.checked = true;
-    $("buffMulti").checked = !!s.buffMulti;
   }
-  ["sortMode", "optTarget", "optLimit", "buffHp", "buffAtk", "buffDef", "gemLevel", "accLevel", "penKind", "spBonus"].forEach(function (id) { $(id).addEventListener("change", save); });
+  ["sortMode", "inTarget", "optTarget", "optLimit", "buffHp", "buffAtk", "buffDef", "gemLevel", "accLevel", "penKind", "spBonus"].forEach(function (id) { $(id).addEventListener("change", save); });
   $("spBonus").addEventListener("change", syncGrade);
 
   // ── 버프 ─────────────────────────────────────────────────
@@ -221,13 +240,24 @@
     $("buffOptBox").hidden = !opt; $("buffAttrBox").hidden = opt; $("buffAttrNote").hidden = opt;
   }
   document.querySelectorAll('input[name="buffMode"]').forEach(function (r) { r.addEventListener("change", function () { syncBuffMode(); save(); }); });
-  $("buffMulti").addEventListener("change", save);
+  // 버프는 용 하나에 하나: 버프 없음 / 체 +40% / 공 +40% / 방 +50%
   var ONE = [[0, 0, 0], [40, 0, 0], [0, 40, 0], [0, 0, 50]];
-  var MULTI = [[40, 40, 0], [40, 0, 50], [0, 40, 50], [40, 40, 50]];
+  // 속성별로 고르기: 버프는 용 하나에 하나
+  //  - 같은 속성을 두 칸에 고르면 먼저 고른 칸을 비움
+  //  - "전체"를 고르면 다른 칸을 비우고, 다른 칸에 속성을 고르면 "전체" 칸을 비움
+  ["buffHp", "buffAtk", "buffDef"].forEach(function (id) {
+    $(id).addEventListener("change", function () {
+      var v = this.value; if (!v) return;
+      ["buffHp", "buffAtk", "buffDef"].forEach(function (o) {
+        if (o === id) return;
+        if (v === "*" || $(o).value === v || $(o).value === "*") $(o).value = "";
+      });
+    });
+  });
   // 그 용이 받을 버프 상태 목록: 속성별로 고르기 = 1개, 버프 최적화 = 전부
   function buffStates(d) {
     if (buffMode() !== "opt") return [E.buffPcts(d, buffAttrs())];
-    return $("buffMulti").checked ? ONE.concat(MULTI) : ONE;
+    return ONE;
   }
   function buffName(bp) { var t = bp.map(function (v, s) { return v ? SK[s] + "+" + v : ""; }).filter(Boolean).join(" "); return t || "버프 없음"; }
   function bufsHtml(list, bestIdx, valFn) {
@@ -240,6 +270,36 @@
   // ── 결과 표시 도우미 ─────────────────────────────────────
   function buffAttrs() { return [$("buffHp").value, $("buffAtk").value, $("buffDef").value]; }
   function tarRef(d, bp) { var row = TAR[d.name]; return row ? row[E.buffKey(bp)] : null; }
+  var REF_GEAR = null, POOL = {};
+  // 고른 스펙(젬·장신구·팬던트 후보)에서 낼 수 있는 최고 비벨 (정령+장비 함께 최적) — 스펙이 같으면 다시 안 구함
+  function poolBest(d, bp, gear) {
+    var k = d.name + "|" + bp.join() + "|" + gear.sig;
+    return POOL[k] || (POOL[k] = E.bestOverall(d, bp, gear));
+  }
+  // 줄마다 세 가지 (모두 디비룡 TAR 과 같은 점수식: r ≤ 1 → 200r − 100)
+  //  self (SAR) = 지금 비벨 ÷ 고른 스펙에서 낼 수 있는 최고 비벨 → 스펙이 같은 정령끼리 비교. 최고 스펙(44·20·태양)을 고르면 TAR 과 같음
+  //  pure (최고스펙 SAR) = 이 정령을 최고 스펙에 넣었을 때 ÷ TAR 100%
+  //  dbr  (TAR) = 지금 비벨 ÷ TAR 100%
+  function addTars(r, d, eff, bp, gear, best) {
+    REF_GEAR = REF_GEAR || E.referenceGear();
+    best = best || poolBest(d, bp, gear);
+    r.poolBest = best;
+    r.self = best ? E.tarScore(r.v, best.v) : null;
+    r.ref = tarRef(d, bp);
+    r.pure = r.ref ? E.tarScore(E.bestGear(d, eff, bp, REF_GEAR).v, r.ref[0]) : null;
+    r.dbr = r.ref ? E.tarScore(r.v, r.ref[0]) : null;
+    r.ratio = r.ref ? r.v / r.ref[0] : 0;
+    r.selfRatio = best ? r.v / best.v : 0;
+    return r;
+  }
+  function sortKey() {
+    var m = $("sortMode").value;
+    if (m === "vval") return function (r) { return r.v; };
+    if (m === "tar") return function (r) { return r.ratio; };
+    return function (r) { return r.selfRatio || 0; };
+  }
+  var LEGEND = '<p class="cm-legend"><b>SAR</b> (Spirit Achievement Rate) = 고른 스펙(젬·장신구·팬던트)으로 낼 수 있는 최고 비벨 기준 TAR — 같은 스펙끼리 정령만 비교 · <b>TAR</b> = 최고 스펙(44젬·20장·태양) 기준 TAR (디비룡) · <b>최고스펙 SAR</b> = 이 정령을 최고 스펙에 넣었을 때의 TAR. 셋 다 디비룡 TAR 식이라 최고 스펙을 고르면 SAR = TAR 이에요. SAR 은 높은데 TAR 만 낮으면 정령은 좋은 거라 장비만 올리면 돼요.</p>';
+  var SORT_NAME = { sar: "SAR 순", tar: "TAR 순", vval: "비벨 순" };
   function penText(p) { var t = p.pct.map(function (v, s) { return v ? SK[s] + v : ""; }).filter(Boolean).join("/"); return t ? (p.name && p.name !== "커스텀" ? p.name + " " : "커스텀 ") + t : "없음"; }
   function accText(a) { return a.name === "없음" ? "없음" : a.name + (a.enc >= 0 ? " · 인챈 " + SK[a.enc] + "21" : ""); }
   function sc(t) { return String(t).replace(/(체|공|방)(\d+%?|%|\+(?=\s|$|·|\/))?/g, function (m, st) { return '<span class="sc sc-' + SC[SK.indexOf(st)] + '">' + m + "</span>"; }); }
@@ -249,10 +309,15 @@
   function statsHtml(r) {
     return '<span class="cm-st hp">' + fmt(r.hp) + '</span><span class="cm-st atk">' + fmt(r.atk) + '</span><span class="cm-st def">' + fmt(r.def) + "</span>";
   }
-  function tarHtml(v, ref, self) {
-    if (!ref) return "-";
-    var m = E.tarScore(v, ref[0]);
-    return (self != null ? floor1(self) + "%" : "") + '<span class="cm-tar-m">(' + floor1(m) + "%)</span>";
+  function tarHtml(r) {
+    var main = r.self != null ? floor1(r.self) + "%" : "-";
+    return '<b>' + main + '</b><small>SAR</small>' +
+      '<span class="cm-tar-sub">' + (r.dbr != null ? "<span>TAR " + floor1(r.dbr) + "%</span>" : "") + (r.pure != null ? "<span>최고장비 SAR " + floor1(r.pure) + "%</span>" : "") + "</span>";
+  }
+  // 정령은 좋은데 장비가 모자란 경우 표시
+  function adviceTag(r) {
+    if (r.pure != null && r.pure >= 99 && r.dbr != null && r.dbr < 94) return '<span class="cm-adv" title="최고장비 SAR 이 100%에 가까운 정령이에요. 버리지 말고 장비를 올리세요.">정령 OK · 장비 업글</span>';
+    return "";
   }
   function gapHtml(v, ref) {
     if (!ref) return "";
@@ -269,41 +334,38 @@
   // ── 계산: 내 정령 넣기 ────────────────────────────────────
   function runInput() {
     var sp = inputSpirit(), eff = E.spiritEffect(sp.slots, sp.bonus), gear = gearSet(), bOpt = buffMode() === "opt";
-    var rows = E.DRAGONS.map(function (d) {
+    var tv = $("inTarget").value, list = targetList(tv);
+    var rows = list.map(function (d) {
       var all = buffStates(d).map(function (bp) {
         var r = E.bestGear(d, eff, bp, gear);
-        var bestSp = E.bestSpiritForGear(d, r.gem, r.acc, r.pen, bp);
-        var ref = tarRef(d, bp);
-        r.d = d; r.bp = bp; r.ref = ref; r.bestSp = bestSp;
-        r.self = bestSp ? Math.min(100, r.v / bestSp.v * 100) : null;
-        r.ratio = ref ? r.v / ref[0] : 0;
-        return r;
+        r.d = d; r.bp = bp;
+        return addTars(r, d, eff, bp, gear);
       });
       var bi = 0; all.forEach(function (x, i) { if (x.v > all[bi].v) bi = i; });
       var r = all[bi]; r.all = all; r.bi = bi;
       return r;
     });
-    var byTar = $("sortMode").value !== "vval";
-    rows.sort(function (a, b) { return byTar ? (b.ratio - a.ratio || b.v - a.v) : (b.v - a.v); });
+    var key = sortKey(), byTar = $("sortMode").value !== "vval";
+    rows.sort(function (a, b) { return key(b) - key(a) || b.v - a.v; });
     var g = gradeOf(sp.slots);
-    var h = '<h2 class="res-h">' + sc(esc(E.spiritLabel(sp.slots, sp.bonus))) + gradeTag(g, 12) + ' <small class="k-dim">· 19마리 · ' + (byTar ? "TAR 순" : "비벨 순") + (bOpt ? " · 버프 최적화" : "") + "</small></h2>";
+    var h = '<h2 class="res-h">' + sc(esc(E.spiritLabel(sp.slots, sp.bonus))) + gradeTag(g, 12) + ' <small class="k-dim">· ' + esc(targetName(tv, list.length)) + ' · ' + SORT_NAME[$("sortMode").value] + (bOpt ? " · 버프 최적화" : "") + "</small></h2>";
     if (bOpt) h += '<p class="cm-legend">버프 최적화: 용마다 비벨이 가장 높은 버프로 보여주고, 버프별 비벨과 (TAR)을 아래 줄에 같이 적었어요 (★ = 가장 좋은 버프).</p>';
-    h += '<p class="cm-legend">TAR <b>n%</b> = 같은 장비에서 가장 좋은 정령 대비 · <b>(m%)</b> = 그 용의 TAR 100% 기준 대비 (디비룡 TAR 식). 줄을 누르면 자세히 보여요.</p>';
+    h += LEGEND;
     h += '<div class="cm-list">' + rows.map(function (r, i) {
-      var top = i === 0 ? ' <span class="cm-best">' + (byTar ? "가장 잘 맞음" : "비벨 1위") + "</span>" : "";
-      var bs = r.bestSp, bsLabel = bs ? E.spiritLabel(bs.slots, bs.bonus) : "";
+      var top = (i === 0 && rows.length > 1 ? ' <span class="cm-best">' + (byTar ? "가장 잘 맞음" : "비벨 1위") + "</span>" : "") + adviceTag(r);
+      var bs = r.poolBest, bsLabel = bs ? E.spiritLabel(bs.slots, bs.bonus) : "";
       return '<details class="cm-row' + (r.bp.some(Boolean) ? " is-buff" : "") + '"><summary>' +
         '<span class="cm-rank">' + (i + 1) + "</span>" +
         '<span class="cm-name"><span class="chip' + (r.bp.some(Boolean) ? " chip-buff" : "") + '">' + esc(r.d.attr) + "</span><b>" + esc(r.d.name) + "</b>" + buffBadges(r.bp) + top + "</span>" +
         '<span class="cm-v"><b>' + fmt(r.v) + '</b><small>비벨</small></span>' +
-        '<span class="cm-tar"><b>' + tarHtml(r.v, r.ref, r.self) + "</b><small>TAR</small></span>" +
+        '<span class="cm-tar">' + tarHtml(r) + "</span>" +
         '<span class="cm-stats">' + statsHtml(r) + "</span>" +
-        bufsHtml(r.all, r.bi, function (x) { return "<b>" + M(x.v) + "</b>" + (x.ref ? "<small>(" + floor1(E.tarScore(x.v, x.ref[0])) + "%)</small>" : ""); }) +
+        bufsHtml(r.all, r.bi, function (x) { return "<b>" + M(x.v) + "</b>" + (x.self != null ? "<small>SAR " + floor1(x.self) + "%</small>" : ""); }) +
         '<span class="cm-gap">' + gapHtml(r.v, r.ref) + "</span>" +
         "</summary><div class=\"cm-det\">" +
         '<div class="cm-det-row"><span class="cm-det-k">장비</span><span>젬 ' + sc(esc(r.gem.text)) + " · " + sc(esc(accText(r.acc))) + " · " + sc(esc(penText(r.pen))) + "</span></div>" +
         '<div class="cm-det-row"><span class="cm-det-k">기본 스탯</span><span>' + r.d.hp + " / " + r.d.atk + " / " + r.d.def + " (이벨 " + fmt(r.d.hp + 4 * r.d.atk + 4 * r.d.def) + ") · 최종 이벨 " + fmt(r.ev) + "</span></div>" +
-        (bs ? '<div class="cm-det-row"><span class="cm-det-k">이 장비 최고 정령</span><span>' + sc(esc(bsLabel)) + gradeTag(typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(bsLabel) : "") + " · 비벨 " + fmt(bs.v) + " (" + bs.hp + "/" + bs.atk + "/" + bs.def + ")</span></div>" : "") +
+        (bs ? '<div class="cm-det-row"><span class="cm-det-k">이 스펙 최고<br>(SAR 100%)</span><span>' + sc(esc(bsLabel)) + gradeTag(typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(bsLabel) : "") + " · 비벨 " + fmt(bs.v) + '<br><small>젬 ' + sc(esc(bs.gem.text)) + " · " + sc(esc(accText(bs.acc))) + " · " + sc(esc(penText(bs.pen))) + " → " + bs.hp + " / " + bs.atk + " / " + bs.def + "</small></span></div>" : "") +
         refHtml(r.ref) + "</div></details>";
     }).join("") + "</div>";
     $("cmResult").innerHTML = h;
@@ -311,9 +373,7 @@
 
   // ── 계산: 정령 최적화 (고른 용/속성만) ───────────────────
   function runOpt(done) {
-    var tv = $("optTarget").value, list;
-    if (tv.indexOf("a:") === 0) { var a = tv.slice(2); list = E.DRAGONS.filter(function (d) { return d.attr === a; }); }
-    else list = [E.DRAGONS[+tv.slice(2)]].filter(Boolean);
+    var list = targetList($("optTarget").value);
     var gear = gearSet(), limit = +$("optLimit").value || 20;
     var out = [], i = 0;
     var res = $("cmResult");
@@ -322,22 +382,29 @@
       res.innerHTML = '<div class="k-empty">정령 최적화 중… ' + list[i].name + " (" + (i + 1) + "/" + list.length + ")</div>";
       setTimeout(function () {
         var d = list[i];
-        var states = buffStates(d).map(function (bp) { return { bp: bp, ref: tarRef(d, bp), rows: E.optimizeSpirits(d, bp, gear, limit) }; });
-        var bi = 0; states.forEach(function (x, k) { if (x.rows[0] && x.rows[0].v > states[bi].rows[0].v) bi = k; });
+        var key = sortKey();
+        var states = buffStates(d).map(function (bp) {
+          var raw = E.optimizeSpirits(d, bp, gear, limit), best = raw[0] || null;
+          var rows = raw.map(function (r) { return addTars(r, d, E.spiritEffect(r.slots, r.bonus), bp, gear, best); });
+          var top = best;
+          rows.sort(function (a, b) { return key(b) - key(a) || b.v - a.v; });
+          return { bp: bp, ref: tarRef(d, bp), rows: rows, top: top };
+        });
+        var bi = 0; states.forEach(function (x, k) { if (x.top && x.top.v > states[bi].top.v) bi = k; });
         out.push({ d: d, states: states, bi: bi, bp: states[bi].bp, ref: states[bi].ref });
         i++; step();
       }, 30);
     }
     function render() {
       var h = '<h2 class="res-h">정령 최적화 <small class="k-dim">· ' + list.map(function (d) { return esc(d.name); }).join(", ") + "</small></h2>";
-      h += '<p class="cm-legend">용마다 정령 3,888가지에 장비를 전부 넣어 보고, 그 정령의 가장 좋은 장비로 계산한 비벨 순입니다. <b>(m%)</b> = 그 용의 TAR 100% 기준 대비.</p>';
+      h += '<p class="cm-legend">용마다 정령 3,888가지에 장비를 전부 넣어 보고, 비벨 높은 정령 ' + limit + '개를 ' + SORT_NAME[$("sortMode").value] + '으로 보여줍니다.</p>' + LEGEND;
       out.forEach(function (o, oi) {
         var multi = o.states.length > 1;
         h += '<section class="cm-opt"><div class="cm-opt-h"><span class="chip' + (o.bp.some(Boolean) ? " chip-buff" : "") + '">' + esc(o.d.attr) + "</span><b>" + esc(o.d.name) + "</b>" + (multi ? "" : buffBadges(o.bp)) +
           '<small class="k-dim">기본 ' + o.d.hp + "/" + o.d.atk + "/" + o.d.def + (!multi && o.ref ? " · TAR 100% " + fmt(o.ref[0]) : "") + "</small></div>";
         if (multi) {
           h += '<div class="cm-btabs" role="tablist">' + o.states.map(function (st, k) {
-            var top = st.rows[0];
+            var top = st.top;
             return '<button type="button" class="cm-btab' + (k === o.bi ? " on" : "") + '" data-sec="' + oi + '" data-k="' + k + '">' + (k === o.bi ? "★ " : "") + esc(buffName(st.bp)) +
               "<b>" + (top ? M(top.v) : "-") + "</b>" + (top && st.ref ? "<small>TAR 100% " + M(st.ref[0]) + "</small>" : "") + "</button>";
           }).join("") + "</div>";
@@ -347,9 +414,9 @@
             var lab = E.spiritLabel(r.slots, r.bonus), g = typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(lab) : "";
             return '<details class="cm-row"><summary>' +
               '<span class="cm-rank">' + (j + 1) + "</span>" +
-              '<span class="cm-name cm-sp">' + sc(esc(lab)) + gradeTag(g) + (multi ? buffBadges(st.bp) : "") + "</span>" +
+              '<span class="cm-name cm-sp">' + sc(esc(lab)) + gradeTag(g) + (multi ? buffBadges(st.bp) : "") + adviceTag(r) + "</span>" +
               '<span class="cm-v"><b>' + fmt(r.v) + '</b><small>비벨</small></span>' +
-              '<span class="cm-tar"><b>' + tarHtml(r.v, st.ref, null) + "</b><small>TAR</small></span>" +
+              '<span class="cm-tar">' + tarHtml(r) + "</span>" +
               '<span class="cm-stats">' + statsHtml(r) + "</span>" +
               '<span class="cm-gap">' + gapHtml(r.v, st.ref) + "</span>" +
               '</summary><div class="cm-det"><div class="cm-det-row"><span class="cm-det-k">장비</span><span>젬 ' + sc(esc(r.gem.text)) + " · " + sc(esc(accText(r.acc))) + " · " + sc(esc(penText(r.pen))) + "</span></div>" +
