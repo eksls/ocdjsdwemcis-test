@@ -50,3 +50,26 @@ html.ui-v2 .cm-opt-h small { width: 100%; }
   html.ui-v2 .cm-row > summary { grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; grid-template-areas: "rank name v stats tar" "rank gap gap gap gap"; }
   html.ui-v2 .cm-opt-h small { width: auto; }
 }
+
+/* 버프 최적화: 버프별 비벨 */
+html.ui-v2 .cm-row > summary { grid-template-areas: "rank name tar" "rank v v" "rank stats stats" "rank bufs bufs" "rank gap gap"; }
+html.ui-v2 .cm-bufs { grid-area: bufs; display: flex; flex-wrap: wrap; gap: 4px; }
+html.ui-v2 .cm-bf { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 8px; border-radius: 8px; background: var(--sheet-2); border: 1px solid var(--line-2); font-size: 12px; color: var(--ink-2); }
+html.ui-v2 .cm-bf i { font-style: normal; color: var(--ink-3); font-weight: 600; }
+html.ui-v2 .cm-bf b { font: 700 13.5px var(--num); }
+html.ui-v2 .cm-bf small { color: var(--ink-3); font-size: 11px; }
+html.ui-v2 .cm-bf.is-best { background: var(--buff-bg); border-color: #efd9a6; color: var(--buff); }
+html.ui-v2 .cm-bf.is-best i { color: var(--buff); }
+html.ui-v2 .cm-bf.is-best i::before { content: "★ "; }
+html.ui-v2 .cm-btabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 8px; margin: 0 -2px; scrollbar-width: none; }
+html.ui-v2 .cm-btab { flex: 0 0 auto; display: flex !important; flex-direction: column; align-items: flex-start; gap: 1px; min-height: 0 !important; height: auto !important; padding: 6px 10px !important;
+  border-radius: 10px !important; border: 1px solid var(--line) !important; background: var(--sheet) !important; color: var(--ink-2) !important; font-size: 12.5px !important; font-weight: 600 !important; box-shadow: none !important; width: auto !important; }
+html.ui-v2 .cm-btab b { font: 700 15px var(--num); color: var(--ink); }
+html.ui-v2 .cm-btab small { font-size: 10.5px; color: var(--ink-3); font-weight: 500; }
+html.ui-v2 .cm-btab.on { background: var(--ink) !important; border-color: var(--ink) !important; color: #fff !important; }
+html.ui-v2 .cm-btab.on b, html.ui-v2 .cm-btab.on small { color: #fff; }
+html.ui-v2 .cm-blist[hidden] { display: none !important; }
+html.ui-v2 .cm-block[hidden], html.ui-v2 #buffAttrBox[hidden], html.ui-v2 #buffAttrNote[hidden] { display: none !important; }
+@media (min-width: 720px) {
+  html.ui-v2 .cm-row > summary { grid-template-areas: "rank name v stats tar" "rank bufs bufs bufs bufs" "rank gap gap gap gap"; }
+}
