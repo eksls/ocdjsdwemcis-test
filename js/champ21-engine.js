@@ -246,6 +246,42 @@
     });
   }
 
+  // bestGear 와 같은 결과를 빠르게: 스탯마다 (젬 더하기, 장신구%, 팬던트%) 값 종류만 따로 계산해 두고 곱하기만 함
+  function gearIndex(gear) {
+    if (gear._idx) return gear._idx;
+    var idx = [0, 1, 2].map(function (s) {
+      var uniq = function (list, f) { var u = [], m = {}, ix = list.map(function (x) { var v = f(x); if (m[v] === undefined) { m[v] = u.length; u.push(v); } return m[v]; }); return { u: u, ix: ix }; };
+      return { g: uniq(gear.gems, function (x) { return x.add[s]; }), a: uniq(gear.accs, function (x) { return x.pct[s]; }), p: uniq(gear.pens, function (x) { return x.pct[s]; }) };
+    });
+    gear._idx = idx;
+    return idx;
+  }
+  function bestGearFast(d, eff, bp, gear) {
+    var base = [d.hp, d.atk, d.def], I = gearIndex(gear);
+    var T = I.map(function (q, s) {
+      var nA = q.a.u.length, nP = q.p.u.length, t = new Float64Array(q.g.u.length * nA * nP);
+      for (var x = 0; x < q.g.u.length; x++) for (var y = 0; y < nA; y++) for (var z = 0; z < nP; z++)
+        t[(x * nA + y) * nP + z] = stat(base[s], q.g.u[x], s, q.a.u[y], eff.pct[s], eff.plus[s], q.p.u[z], eff.bon[s], bp[s]);
+      return t;
+    });
+    var best = -1, bi = null;
+    var G = gear.gems.length, A = gear.accs.length, P = gear.pens.length;
+    var nA0 = I[0].a.u.length, nP0 = I[0].p.u.length, nA1 = I[1].a.u.length, nP1 = I[1].p.u.length, nA2 = I[2].a.u.length, nP2 = I[2].p.u.length;
+    for (var gi = 0; gi < G; gi++) {
+      var g0 = I[0].g.ix[gi] * nA0, g1 = I[1].g.ix[gi] * nA1, g2 = I[2].g.ix[gi] * nA2;
+      for (var ai = 0; ai < A; ai++) {
+        var a0 = (g0 + I[0].a.ix[ai]) * nP0, a1 = (g1 + I[1].a.ix[ai]) * nP1, a2 = (g2 + I[2].a.ix[ai]) * nP2;
+        for (var pi = 0; pi < P; pi++) {
+          var v = T[0][a0 + I[0].p.ix[pi]] * T[1][a1 + I[1].p.ix[pi]] * T[2][a2 + I[2].p.ix[pi]];
+          if (v > best) { best = v; bi = [gi, ai, pi]; }
+        }
+      }
+    }
+    var r = evalOne(d, gear.gems[bi[0]], gear.accs[bi[1]], gear.pens[bi[2]], eff, bp);
+    r.gem = gear.gems[bi[0]]; r.acc = gear.accs[bi[1]]; r.pen = gear.pens[bi[2]];
+    return r;
+  }
+
   // 같은 장비 후보(젬·장신구·팬던트 단계) 안에서 낼 수 있는 최고 비벨 (정령 + 장비 함께 최적)
   //  정령 4칸을 어느 스탯에 줄지(81가지) 정하면, 각 칸의 %/+ 는 스탯마다 따로 고르면 됨
   //  → 스탯 표마다 "칸 묶음별 최고값"을 미리 구해 두고 81 × 부가옵 3 = 243번 곱셈으로 끝 (정확한 최댓값)
@@ -320,7 +356,7 @@
     DRAGONS: DRAGONS, ATTRS: ATTRS, SK: SK, GEM_LEVELS: GEM_LEVELS, ACC_LEVELS: ACC_LEVELS, PENDANTS: PENDANTS,
     BUFF: BUFF, ENC: ENC, stat: stat, spiritEffect: spiritEffect, spiritLabel: spiritLabel, allSpirits: allSpirits,
     gemCombos: gemCombos, accList: accList, accCombos: accCombos, prune: prune, buffPcts: buffPcts, buffKey: buffKey,
-    evalOne: evalOne, bestGear: bestGear, optimizeSpirits: optimizeSpirits, bestOverall: bestOverall, bestSpiritForGear: bestSpiritForGear, tarScore: tarScore, referenceGear: referenceGear
+    evalOne: evalOne, bestGear: bestGear, bestGearFast: bestGearFast, optimizeSpirits: optimizeSpirits, bestOverall: bestOverall, bestSpiritForGear: bestSpiritForGear, tarScore: tarScore, referenceGear: referenceGear
   };
   root.CHAMP21 = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
