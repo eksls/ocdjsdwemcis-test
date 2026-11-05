@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="js/ui-mode.js?v=20261103"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>챔대 21층</title>
+<link rel="stylesheet" href="css/spirit-calc.css?v=20261104">
+<link rel="stylesheet" href="css/champ21.css?v=20261105">
+</head>
+<body>
+
+<h1>챔대 21층</h1>
+<p class="k-sub">21층 용 19마리에 정령을 넣어 보고 어느 용과 가장 잘 맞는지, 그 용의 TAR 100%와 얼마나 차이 나는지 보여줍니다. 공식은 디비룡 챔대 계산기와 같습니다 (정령 50% 적용).</p>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>정령</h2></div>
+  <div class="cm-seg" role="radiogroup" aria-label="정령 정하기">
+    <label class="cm-seg-btn"><input type="radio" name="spMode" value="input" checked><span>내 정령 넣기</span></label>
+    <label class="cm-seg-btn"><input type="radio" name="spMode" value="opt"><span>정령 최적화</span></label>
+  </div>
+
+  <div id="spInput" class="cm-block">
+    <div class="k-slots" id="spSlots"></div>
+    <div class="k-grid k-grid-3" style="margin-top:10px">
+      <label class="k-field"><span>부가옵</span>
+        <select id="spBonus"><option value="0">체 +40</option><option value="1">공 +10</option><option value="2">방 +10</option></select>
+      </label>
+      <label class="k-field"><span>정렬</span>
+        <select id="sortMode"><option value="tar">TAR 높은 순 (잘 맞는 순)</option><option value="vval">비벨 높은 순</option></select>
+      </label>
+      <div class="k-field cm-grade-field"><span>이 정령</span><div id="spGrade" class="cm-grade-box">-</div></div>
+    </div>
+  </div>
+
+  <div id="spOpt" class="cm-block" hidden>
+    <div class="k-grid k-grid-3">
+      <label class="k-field cm-span2"><span>최적화할 용</span><select id="optTarget"></select></label>
+      <label class="k-field"><span>보여줄 정령 수</span>
+        <select id="optLimit"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
+      </label>
+    </div>
+    <p class="k-note">고른 용(또는 그 속성 용 전부)에 정령 3,888가지와 장비 조합을 전부 넣어 보고, 비벨 높은 정령부터 보여줍니다. 용 1마리에 1~2초 걸려요.</p>
+  </div>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>속성 버프</h2><small class="k-dim">그 속성 용만 받음</small></div>
+  <div class="k-grid k-grid-3">
+    <label class="k-field"><span class="s-hp">체력 +40%</span><select id="buffHp" class="cm-attr"></select></label>
+    <label class="k-field"><span class="s-atk">공격 +40%</span><select id="buffAtk" class="cm-attr"></select></label>
+    <label class="k-field"><span class="s-def">방어 +50%</span><select id="buffDef" class="cm-attr"></select></label>
+  </div>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>장비</h2>
+    <div class="k-toggles"><label class="k-chip"><input type="checkbox" id="useMyGear"><span>내 장비 쓰기</span></label></div>
+  </div>
+  <div class="k-grid k-grid-3">
+    <label class="k-field k-gearfield"><span>젬</span><select id="gemLevel"></select></label>
+    <label class="k-field k-gearfield"><span>장신구</span><select id="accLevel"></select></label>
+    <label class="k-field k-gearfield"><span>팬던트</span>
+      <select id="penKind"><option>없음</option><option>달</option><option selected>태양</option></select>
+    </label>
+  </div>
+  <p class="k-note k-mygear-note" id="myGearNote" hidden></p>
+  <div class="k-sub-h k-gearfield">
+    <label class="k-chip"><input type="checkbox" id="customPenOn"><span>커스텀 팬던트</span></label>
+    <button type="button" id="customPenAdd" class="k-btn-sm" disabled>+ 팬던트 추가</button>
+  </div>
+  <div class="custom-pendant-container k-gearfield disabled-ui" id="customPenList"></div>
+  <p class="k-note">젬 5개 분배, 장신구 12종 × 인챈트(체·공·방 21%), 팬던트 옵션은 계산기가 전부 넣어 보고 고릅니다. 물약 크리•회피(24/6/6), 풀컬(240/60/60) 고정.</p>
+</section>
+
+<button type="button" id="calcButton">계산하기</button>
+<div class="result-area cm-result" id="cmResult"><div class="k-empty">계산하기를 누르면 결과가 여기에 나옵니다.</div></div>
+
+<script src="js/spirit-grade.js?v=20261026"></script>
+<script src="js/champ21-engine.js?v=20261105"></script>
+<script src="js/champ21-tar.js?v=20261105"></script>
+<script src="js/champ21.js?v=20261105"></script>
+</body>
+</html>
