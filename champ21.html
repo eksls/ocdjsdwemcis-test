@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>챔대 21층</title>
 <link rel="stylesheet" href="css/spirit-calc.css?v=20261104">
-<link rel="stylesheet" href="css/champ21.css?v=20261105">
+<link rel="stylesheet" href="css/champ21.css?v=20261105b">
 </head>
 <body>
 
@@ -45,12 +45,21 @@
 </section>
 
 <section class="k-card">
-  <div class="k-card-h"><h2>속성 버프</h2><small class="k-dim">그 속성 용만 받음</small></div>
-  <div class="k-grid k-grid-3">
+  <div class="k-card-h"><h2>속성 버프</h2></div>
+  <div class="cm-seg" role="radiogroup" aria-label="버프 정하기">
+    <label class="cm-seg-btn"><input type="radio" name="buffMode" value="attr" checked><span>속성별로 고르기</span></label>
+    <label class="cm-seg-btn"><input type="radio" name="buffMode" value="opt"><span>버프 최적화</span></label>
+  </div>
+  <div id="buffOptBox" class="cm-block" hidden>
+    <div class="k-toggles"><label class="k-chip"><input type="checkbox" id="buffMulti"><span>2·3벞 겹침도 보기</span></label></div>
+    <p class="k-note">용마다 버프 없음 · 체 +40% · 공 +40% · 방 +50%를 전부 계산해서 어느 버프에서 가장 좋은지 보여줍니다. TAR 도 그 버프 기준(TAR 100% 표의 같은 버프)으로 매깁니다.</p>
+  </div>
+  <div class="k-grid k-grid-3" id="buffAttrBox">
     <label class="k-field"><span class="s-hp">체력 +40%</span><select id="buffHp" class="cm-attr"></select></label>
     <label class="k-field"><span class="s-atk">공격 +40%</span><select id="buffAtk" class="cm-attr"></select></label>
     <label class="k-field"><span class="s-def">방어 +50%</span><select id="buffDef" class="cm-attr"></select></label>
   </div>
+  <p class="k-note" id="buffAttrNote">고른 속성의 용만 그 버프를 받습니다.</p>
 </section>
 
 <section class="k-card">
@@ -79,6 +88,6 @@
 <script src="js/spirit-grade.js?v=20261026"></script>
 <script src="js/champ21-engine.js?v=20261105"></script>
 <script src="js/champ21-tar.js?v=20261105"></script>
-<script src="js/champ21.js?v=20261105"></script>
+<script src="js/champ21.js?v=20261105b"></script>
 </body>
 </html>
