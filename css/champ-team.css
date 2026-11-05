@@ -93,3 +93,39 @@ html.ui-v2 .ct-res-attr .ct-attr-h { align-items: center; }
 html.ui-v2 .ct-cell .cm-stats { grid-area: auto; }
 html.ui-v2 .ct-sp-b .sp-bonus { flex: 0 0 96px; }
 html.ui-v2 .ct-grade { flex: 1 1 0; }
+
+/* 남은 정령: 잘 맞는 순 */
+html.ui-v2 .ct-left-h small { font-size: 12px; font-weight: 500; }
+html.ui-v2 .ct-left-list { display: grid; gap: 4px; }
+html.ui-v2 .ct-left-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; background: var(--sheet); border: 1px solid var(--line-2); border-radius: 10px; font-size: 13.5px; }
+html.ui-v2 .ct-left-no { font: 700 12.5px var(--num); color: var(--ink-3); }
+html.ui-v2 .ct-left-v { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
+html.ui-v2 .ct-left-v b { font: 700 15px var(--num); }
+html.ui-v2 .ct-left-v small { font-size: 11px; color: var(--ink-3); white-space: nowrap; }
+html.ui-v2 .ct-left-row.is-worst { border-color: #ecc5d2; background: var(--nerf-bg); }
+html.ui-v2 .ct-left-row.is-worst .ct-left-v b { color: var(--nerf); }
+
+/* 마지막 계산에서 어디 들어갔는지 (보유 정령 목록) */
+html.ui-v2 .ct-place { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 4px 6px; font-size: 12px; }
+html.ui-v2 .ct-place span { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 8px; border-radius: 8px; background: var(--sheet-2); border: 1px solid var(--line-2); color: var(--ink-2); }
+html.ui-v2 .ct-place span i { font-style: normal; font-weight: 700; color: var(--ink-3); font-size: 11px; }
+html.ui-v2 .ct-place span.on { background: #e8effb; border-color: #c9d8f3; color: #1d3f7a; }
+html.ui-v2 .ct-place span.on i { color: #2563c9; }
+html.ui-v2 .ct-place span.off { opacity: .6; }
+html.ui-v2 .ct-place.none { color: var(--ink-3); font-weight: 600; }
+html.ui-v2 .ct-sp.is-none { background: #eceef2; border-color: #dcdfe6; }
+html.ui-v2 .ct-sp.is-none .ct-pairs, html.ui-v2 .ct-sp.is-none .ct-sp-b { opacity: .55; }
+html.ui-v2 .ct-sp.is-one { background: #fbf7ec; border-color: #efd9a6; }
+html.ui-v2 .ct-sp.is-both { background: #eef4ff; border-color: #c9d8f3; }
+@media (min-width: 900px) { html.ui-v2 .ct-place { grid-column: 2 / -1; } }
+
+/* 남은 정령: 다른 순서에서 어디 들어갔는지 */
+html.ui-v2 .ct-left-pl { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 4px 6px; font-size: 12px; }
+html.ui-v2 .ct-left-pl span { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 8px; border-radius: 8px; background: var(--sheet-2); border: 1px solid var(--line-2); color: var(--ink-2); }
+html.ui-v2 .ct-left-pl span i { font-style: normal; font-weight: 700; color: var(--ink-3); font-size: 11px; }
+html.ui-v2 .ct-left-pl span.on { background: #fbf1d9; border-color: #efd9a6; color: #5b4300; }
+html.ui-v2 .ct-left-pl span.on i { color: var(--buff); }
+html.ui-v2 .ct-left-pl span.off { opacity: .7; }
+html.ui-v2 .ct-left-row.is-none { background: #eceef2; border-color: #dcdfe6; }
+html.ui-v2 .ct-left-row.is-one { background: #fbf7ec; border-color: #efd9a6; }
+html.ui-v2 .ct-left-row.is-worst { border-color: #ecc5d2; box-shadow: inset 3px 0 0 var(--nerf); }
