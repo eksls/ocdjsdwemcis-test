@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>챔대 21층</title>
 <link rel="stylesheet" href="css/spirit-calc.css?v=20261104">
-<link rel="stylesheet" href="css/champ21.css?v=20261105b">
+<link rel="stylesheet" href="css/champ21.css?v=20261105f">
 </head>
 <body>
 
@@ -23,14 +23,12 @@
   <div id="spInput" class="cm-block">
     <div class="k-slots" id="spSlots"></div>
     <div class="k-grid k-grid-3" style="margin-top:10px">
+      <label class="k-field cm-span2"><span>계산할 용</span><select id="inTarget"></select></label>
       <label class="k-field"><span>부가옵</span>
         <select id="spBonus"><option value="0">체 +40</option><option value="1">공 +10</option><option value="2">방 +10</option></select>
       </label>
-      <label class="k-field"><span>정렬</span>
-        <select id="sortMode"><option value="tar">TAR 높은 순 (잘 맞는 순)</option><option value="vval">비벨 높은 순</option></select>
-      </label>
-      <div class="k-field cm-grade-field"><span>이 정령</span><div id="spGrade" class="cm-grade-box">-</div></div>
     </div>
+    <div class="cm-grade-line"><span>이 정령</span><div id="spGrade" class="cm-grade-box">-</div></div>
   </div>
 
   <div id="spOpt" class="cm-block" hidden>
@@ -40,7 +38,16 @@
         <select id="optLimit"><option value="10">10개</option><option value="20" selected>20개</option><option value="50">50개</option></select>
       </label>
     </div>
-    <p class="k-note">고른 용(또는 그 속성 용 전부)에 정령 3,888가지와 장비 조합을 전부 넣어 보고, 비벨 높은 정령부터 보여줍니다. 용 1마리에 1~2초 걸려요.</p>
+    <p class="k-note">고른 용(또는 그 속성 용 전부)에 정령 3,888가지와 장비 조합을 전부 넣어 보고, 비벨 높은 정령을 뽑아 아래 정렬 순서로 보여줍니다.</p>
+  </div>
+  <div class="k-grid cm-sort-grid" style="margin-top:12px">
+    <label class="k-field"><span>정렬</span>
+      <select id="sortMode">
+        <option value="sar">SAR 높은 순 (같은 장비에서 정령만 비교)</option>
+        <option value="tar">TAR 높은 순 (디비룡, 장비 포함)</option>
+        <option value="vval">비벨 높은 순</option>
+      </select>
+    </label>
   </div>
 </section>
 
@@ -51,15 +58,14 @@
     <label class="cm-seg-btn"><input type="radio" name="buffMode" value="opt"><span>버프 최적화</span></label>
   </div>
   <div id="buffOptBox" class="cm-block" hidden>
-    <div class="k-toggles"><label class="k-chip"><input type="checkbox" id="buffMulti"><span>2·3벞 겹침도 보기</span></label></div>
-    <p class="k-note">용마다 버프 없음 · 체 +40% · 공 +40% · 방 +50%를 전부 계산해서 어느 버프에서 가장 좋은지 보여줍니다. TAR 도 그 버프 기준(TAR 100% 표의 같은 버프)으로 매깁니다.</p>
+    <p class="k-note" style="margin-top:0">용마다 버프 없음 · 체 +40% · 공 +40% · 방 +50%를 전부 계산해서 어느 버프에서 가장 좋은지 보여줍니다. TAR 도 그 버프 기준(TAR 100% 표의 같은 버프)으로 매깁니다.</p>
   </div>
   <div class="k-grid k-grid-3" id="buffAttrBox">
     <label class="k-field"><span class="s-hp">체력 +40%</span><select id="buffHp" class="cm-attr"></select></label>
     <label class="k-field"><span class="s-atk">공격 +40%</span><select id="buffAtk" class="cm-attr"></select></label>
     <label class="k-field"><span class="s-def">방어 +50%</span><select id="buffDef" class="cm-attr"></select></label>
   </div>
-  <p class="k-note" id="buffAttrNote">고른 속성의 용만 그 버프를 받습니다.</p>
+  <p class="k-note" id="buffAttrNote">고른 속성의 용만 그 버프를 받고, "전체"는 모든 용이 받습니다. 버프는 용 하나에 하나라서 같은 속성은 한 칸에만, "전체"는 한 버프에만 고를 수 있어요.</p>
 </section>
 
 <section class="k-card">
@@ -86,8 +92,8 @@
 <div class="result-area cm-result" id="cmResult"><div class="k-empty">계산하기를 누르면 결과가 여기에 나옵니다.</div></div>
 
 <script src="js/spirit-grade.js?v=20261026"></script>
-<script src="js/champ21-engine.js?v=20261105"></script>
+<script src="js/champ21-engine.js?v=20261105g"></script>
 <script src="js/champ21-tar.js?v=20261105"></script>
-<script src="js/champ21.js?v=20261105b"></script>
+<script src="js/champ21.js?v=20261105g"></script>
 </body>
 </html>
