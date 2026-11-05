@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<script src="js/ui-mode.js?v=20261103"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>챔대 27마리</title>
+<link rel="stylesheet" href="css/spirit-calc.css?v=20261104">
+<link rel="stylesheet" href="css/champ21.css?v=20261105f">
+<link rel="stylesheet" href="css/champ-team.css?v=20261105d">
+</head>
+<body>
+
+<h1>챔대 27마리 정령 배치</h1>
+<p class="k-sub">가진 정령을 21층 용 27칸(속성마다 3칸)에 나눠 넣습니다. 모든 정령 × 모든 칸의 SAR(또는 비벨)을 계산한 뒤, 가장 높은 짝부터 차례대로 채웁니다. 공식은 디비룡 챔대 계산기와 같습니다 (정령 50%).</p>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>보유 정령 <small id="spCount"></small></h2>
+    <div class="ct-actions">
+      <button type="button" id="spAdd" class="k-btn-sm">+ 정령 추가</button>
+    </div>
+  </div>
+  <div class="ct-sp-list" id="spList"></div>
+  <p class="k-note">정령마다 개수를 넣을 수 있어요 (같은 정령 3개 = 3칸까지). 합이 27개보다 적으면 계산하지 않아요.</p>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>속성 버프</h2></div>
+  <div class="k-grid k-grid-3">
+    <label class="k-field"><span class="s-hp">체력 +40%</span><select id="buffHp"></select></label>
+    <label class="k-field"><span class="s-atk">공격 +40%</span><select id="buffAtk"></select></label>
+    <label class="k-field"><span class="s-def">방어 +50%</span><select id="buffDef"></select></label>
+  </div>
+  <p class="k-note">고른 속성의 용만 그 버프를 받고, "전체"는 모든 용이 받습니다. 버프는 용 하나에 하나라서 같은 속성은 한 칸에만, "전체"는 한 버프에만 고를 수 있어요.</p>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>용 배치 <small>속성마다 3칸 · 27칸</small></h2></div>
+  <div class="ct-attrs" id="attrGrid"></div>
+  <p class="k-note">칸마다 그 속성 용 중에서 고르세요 (같은 용 여러 칸 가능).</p>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>장비</h2>
+    <div class="k-toggles"><label class="k-chip"><input type="checkbox" id="useMyGear"><span>내 장비 쓰기</span></label></div>
+  </div>
+  <div class="k-grid k-grid-3">
+    <label class="k-field k-gearfield"><span>젬</span><select id="gemLevel"></select></label>
+    <label class="k-field k-gearfield"><span>장신구</span><select id="accLevel"></select></label>
+    <label class="k-field k-gearfield"><span>팬던트</span>
+      <select id="penKind"><option>없음</option><option>달</option><option selected>태양</option></select>
+    </label>
+  </div>
+  <p class="k-note k-mygear-note" id="myGearNote" hidden></p>
+  <div class="k-sub-h k-gearfield">
+    <label class="k-chip"><input type="checkbox" id="customPenOn"><span>커스텀 팬던트</span></label>
+    <button type="button" id="customPenAdd" class="k-btn-sm" disabled>+ 팬던트 추가</button>
+  </div>
+  <div class="custom-pendant-container k-gearfield disabled-ui" id="customPenList"></div>
+  <p class="k-note">칸마다 장비(젬 5개 분배, 장신구 12종 × 인챈트 21%, 팬던트 옵션)를 따로 가장 좋게 맞춥니다 — 장비는 칸끼리 겹칠 수 있어요. 물약 크리•회피, 풀컬 고정.</p>
+</section>
+
+<section class="k-card">
+  <div class="k-card-h"><h2>채우는 방법</h2></div>
+  <div class="k-grid k-grid-3">
+    <label class="k-field"><span>기준</span>
+      <select id="critMode">
+        <option value="sar">SAR</option>
+        <option value="tar">TAR</option>
+        <option value="vval">비벨</option>
+      </select>
+    </label>
+    <label class="k-field cm-span2"><span>순서</span>
+      <select id="fillMode">
+        <option value="global">가장 높은 짝부터</option>
+        <option value="round">속성마다 하나씩 (땅·물·…·악몽 1번째 → 2번째 → 3번째)</option>
+      </select>
+    </label>
+  </div>
+  <div class="ct-lock" id="lockBox">
+    <label class="k-chip"><input type="checkbox" id="lockOn"><span>기준선</span></label>
+    <label class="ct-lock-v"><input type="number" id="lockVal" min="50" max="100" step="0.1" value="99" inputmode="decimal" aria-label="기준선 %"><span>% 이상은 그대로</span></label>
+  </div>
+  <p class="k-note" id="lockNote">켜면 기준선 이상인 칸은 더 올리지 않고, 좋은 정령을 기준선 아래 칸에 먼저 씁니다 (예: 99%를 99.5%로 만들 정령으로 91%를 99%로). 다 채운 뒤 남은 정령과 바꿔 넣거나 칸끼리 바꿔서 낮은 칸을 더 올립니다.</p>
+</section>
+
+<button type="button" id="calcButton">정령 배치하기</button>
+<div class="result-area cm-result" id="ctResult"><div class="k-empty">정령 배치하기를 누르면 결과가 여기에 나옵니다.</div></div>
+
+<script src="js/spirit-grade.js?v=20261026"></script>
+<script src="js/champ21-engine.js?v=20261105h"></script>
+<script src="js/champ21-tar.js?v=20261105"></script>
+<script src="js/champ-team.js?v=20261105b"></script>
+</body>
+</html>
