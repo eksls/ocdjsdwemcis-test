@@ -188,7 +188,7 @@
     try {
       localStorage.setItem(SAVE, JSON.stringify({
         mode: spMode(), sp: inputSpirit(), sort: $("sortMode").value, target: $("optTarget").value, limit: $("optLimit").value,
-        buff: [$("buffHp").value, $("buffAtk").value, $("buffDef").value],
+        buff: [$("buffHp").value, $("buffAtk").value, $("buffDef").value], buffMode: buffMode(), buffMulti: $("buffMulti").checked,
         gem: $("gemLevel").value, acc: $("accLevel").value, pen: $("penKind").value,
         myGear: $("useMyGear").checked, customOn: $("customPenOn").checked, custom: customPenData()
       }));
@@ -208,9 +208,34 @@
     $("customPenList").classList.toggle("disabled-ui", !s.customOn);
     (s.custom && s.custom.length ? s.custom : [null]).forEach(function (c) { addPen(c); });
     var r = document.querySelector('input[name="spMode"][value="' + (s.mode === "opt" ? "opt" : "input") + '"]'); if (r) r.checked = true;
+    var rb = document.querySelector('input[name="buffMode"][value="' + (s.buffMode === "opt" ? "opt" : "attr") + '"]'); if (rb) rb.checked = true;
+    $("buffMulti").checked = !!s.buffMulti;
   }
   ["sortMode", "optTarget", "optLimit", "buffHp", "buffAtk", "buffDef", "gemLevel", "accLevel", "penKind", "spBonus"].forEach(function (id) { $(id).addEventListener("change", save); });
   $("spBonus").addEventListener("change", syncGrade);
+
+  // ── 버프 ─────────────────────────────────────────────────
+  function buffMode() { var r = document.querySelector('input[name="buffMode"]:checked'); return r ? r.value : "attr"; }
+  function syncBuffMode() {
+    var opt = buffMode() === "opt";
+    $("buffOptBox").hidden = !opt; $("buffAttrBox").hidden = opt; $("buffAttrNote").hidden = opt;
+  }
+  document.querySelectorAll('input[name="buffMode"]').forEach(function (r) { r.addEventListener("change", function () { syncBuffMode(); save(); }); });
+  $("buffMulti").addEventListener("change", save);
+  var ONE = [[0, 0, 0], [40, 0, 0], [0, 40, 0], [0, 0, 50]];
+  var MULTI = [[40, 40, 0], [40, 0, 50], [0, 40, 50], [40, 40, 50]];
+  // 그 용이 받을 버프 상태 목록: 속성별로 고르기 = 1개, 버프 최적화 = 전부
+  function buffStates(d) {
+    if (buffMode() !== "opt") return [E.buffPcts(d, buffAttrs())];
+    return $("buffMulti").checked ? ONE.concat(MULTI) : ONE;
+  }
+  function buffName(bp) { var t = bp.map(function (v, s) { return v ? SK[s] + "+" + v : ""; }).filter(Boolean).join(" "); return t || "버프 없음"; }
+  function bufsHtml(list, bestIdx, valFn) {
+    if (list.length < 2) return "";
+    return '<span class="cm-bufs">' + list.map(function (x, i) {
+      return '<span class="cm-bf' + (i === bestIdx ? " is-best" : "") + '"><i>' + esc(buffName(x.bp)) + "</i>" + valFn(x) + "</span>";
+    }).join("") + "</span>";
+  }
 
   // ── 결과 표시 도우미 ─────────────────────────────────────
   function buffAttrs() { return [$("buffHp").value, $("buffAtk").value, $("buffDef").value]; }
@@ -243,20 +268,26 @@
 
   // ── 계산: 내 정령 넣기 ────────────────────────────────────
   function runInput() {
-    var sp = inputSpirit(), eff = E.spiritEffect(sp.slots, sp.bonus), gear = gearSet(), ba = buffAttrs();
+    var sp = inputSpirit(), eff = E.spiritEffect(sp.slots, sp.bonus), gear = gearSet(), bOpt = buffMode() === "opt";
     var rows = E.DRAGONS.map(function (d) {
-      var bp = E.buffPcts(d, ba), r = E.bestGear(d, eff, bp, gear);
-      var bestSp = E.bestSpiritForGear(d, r.gem, r.acc, r.pen, bp);
-      var ref = tarRef(d, bp);
-      r.d = d; r.bp = bp; r.ref = ref; r.bestSp = bestSp;
-      r.self = bestSp ? Math.min(100, r.v / bestSp.v * 100) : null;
-      r.ratio = ref ? r.v / ref[0] : 0;
+      var all = buffStates(d).map(function (bp) {
+        var r = E.bestGear(d, eff, bp, gear);
+        var bestSp = E.bestSpiritForGear(d, r.gem, r.acc, r.pen, bp);
+        var ref = tarRef(d, bp);
+        r.d = d; r.bp = bp; r.ref = ref; r.bestSp = bestSp;
+        r.self = bestSp ? Math.min(100, r.v / bestSp.v * 100) : null;
+        r.ratio = ref ? r.v / ref[0] : 0;
+        return r;
+      });
+      var bi = 0; all.forEach(function (x, i) { if (x.v > all[bi].v) bi = i; });
+      var r = all[bi]; r.all = all; r.bi = bi;
       return r;
     });
     var byTar = $("sortMode").value !== "vval";
     rows.sort(function (a, b) { return byTar ? (b.ratio - a.ratio || b.v - a.v) : (b.v - a.v); });
     var g = gradeOf(sp.slots);
-    var h = '<h2 class="res-h">' + sc(esc(E.spiritLabel(sp.slots, sp.bonus))) + gradeTag(g, 12) + ' <small class="k-dim">· 19마리 · ' + (byTar ? "TAR 순" : "비벨 순") + "</small></h2>";
+    var h = '<h2 class="res-h">' + sc(esc(E.spiritLabel(sp.slots, sp.bonus))) + gradeTag(g, 12) + ' <small class="k-dim">· 19마리 · ' + (byTar ? "TAR 순" : "비벨 순") + (bOpt ? " · 버프 최적화" : "") + "</small></h2>";
+    if (bOpt) h += '<p class="cm-legend">버프 최적화: 용마다 비벨이 가장 높은 버프로 보여주고, 버프별 비벨과 (TAR)을 아래 줄에 같이 적었어요 (★ = 가장 좋은 버프).</p>';
     h += '<p class="cm-legend">TAR <b>n%</b> = 같은 장비에서 가장 좋은 정령 대비 · <b>(m%)</b> = 그 용의 TAR 100% 기준 대비 (디비룡 TAR 식). 줄을 누르면 자세히 보여요.</p>';
     h += '<div class="cm-list">' + rows.map(function (r, i) {
       var top = i === 0 ? ' <span class="cm-best">' + (byTar ? "가장 잘 맞음" : "비벨 1위") + "</span>" : "";
@@ -267,6 +298,7 @@
         '<span class="cm-v"><b>' + fmt(r.v) + '</b><small>비벨</small></span>' +
         '<span class="cm-tar"><b>' + tarHtml(r.v, r.ref, r.self) + "</b><small>TAR</small></span>" +
         '<span class="cm-stats">' + statsHtml(r) + "</span>" +
+        bufsHtml(r.all, r.bi, function (x) { return "<b>" + M(x.v) + "</b>" + (x.ref ? "<small>(" + floor1(E.tarScore(x.v, x.ref[0])) + "%)</small>" : ""); }) +
         '<span class="cm-gap">' + gapHtml(r.v, r.ref) + "</span>" +
         "</summary><div class=\"cm-det\">" +
         '<div class="cm-det-row"><span class="cm-det-k">장비</span><span>젬 ' + sc(esc(r.gem.text)) + " · " + sc(esc(accText(r.acc))) + " · " + sc(esc(penText(r.pen))) + "</span></div>" +
@@ -282,38 +314,58 @@
     var tv = $("optTarget").value, list;
     if (tv.indexOf("a:") === 0) { var a = tv.slice(2); list = E.DRAGONS.filter(function (d) { return d.attr === a; }); }
     else list = [E.DRAGONS[+tv.slice(2)]].filter(Boolean);
-    var gear = gearSet(), ba = buffAttrs(), limit = +$("optLimit").value || 20;
+    var gear = gearSet(), limit = +$("optLimit").value || 20;
     var out = [], i = 0;
     var res = $("cmResult");
     function step() {
       if (i >= list.length) { render(); done(); return; }
       res.innerHTML = '<div class="k-empty">정령 최적화 중… ' + list[i].name + " (" + (i + 1) + "/" + list.length + ")</div>";
       setTimeout(function () {
-        var d = list[i], bp = E.buffPcts(d, ba);
-        out.push({ d: d, bp: bp, ref: tarRef(d, bp), rows: E.optimizeSpirits(d, bp, gear, limit) });
+        var d = list[i];
+        var states = buffStates(d).map(function (bp) { return { bp: bp, ref: tarRef(d, bp), rows: E.optimizeSpirits(d, bp, gear, limit) }; });
+        var bi = 0; states.forEach(function (x, k) { if (x.rows[0] && x.rows[0].v > states[bi].rows[0].v) bi = k; });
+        out.push({ d: d, states: states, bi: bi, bp: states[bi].bp, ref: states[bi].ref });
         i++; step();
       }, 30);
     }
     function render() {
       var h = '<h2 class="res-h">정령 최적화 <small class="k-dim">· ' + list.map(function (d) { return esc(d.name); }).join(", ") + "</small></h2>";
       h += '<p class="cm-legend">용마다 정령 3,888가지에 장비를 전부 넣어 보고, 그 정령의 가장 좋은 장비로 계산한 비벨 순입니다. <b>(m%)</b> = 그 용의 TAR 100% 기준 대비.</p>';
-      out.forEach(function (o) {
-        h += '<section class="cm-opt"><div class="cm-opt-h"><span class="chip' + (o.bp.some(Boolean) ? " chip-buff" : "") + '">' + esc(o.d.attr) + "</span><b>" + esc(o.d.name) + "</b>" + buffBadges(o.bp) +
-          '<small class="k-dim">기본 ' + o.d.hp + "/" + o.d.atk + "/" + o.d.def + (o.ref ? " · TAR 100% " + fmt(o.ref[0]) : "") + "</small></div>";
-        h += '<div class="cm-list">' + o.rows.map(function (r, k) {
-          var lab = E.spiritLabel(r.slots, r.bonus), g = typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(lab) : "";
-          return '<details class="cm-row"><summary>' +
-            '<span class="cm-rank">' + (k + 1) + "</span>" +
-            '<span class="cm-name cm-sp">' + sc(esc(lab)) + gradeTag(g) + "</span>" +
-            '<span class="cm-v"><b>' + fmt(r.v) + '</b><small>비벨</small></span>' +
-            '<span class="cm-tar"><b>' + tarHtml(r.v, o.ref, null) + "</b><small>TAR</small></span>" +
-            '<span class="cm-stats">' + statsHtml(r) + "</span>" +
-            '<span class="cm-gap">' + gapHtml(r.v, o.ref) + "</span>" +
-            '</summary><div class="cm-det"><div class="cm-det-row"><span class="cm-det-k">장비</span><span>젬 ' + sc(esc(r.gem.text)) + " · " + sc(esc(accText(r.acc))) + " · " + sc(esc(penText(r.pen))) + "</span></div>" +
-            (k === 0 ? refHtml(o.ref) : "") + "</div></details>";
-        }).join("") + "</div></section>";
+      out.forEach(function (o, oi) {
+        var multi = o.states.length > 1;
+        h += '<section class="cm-opt"><div class="cm-opt-h"><span class="chip' + (o.bp.some(Boolean) ? " chip-buff" : "") + '">' + esc(o.d.attr) + "</span><b>" + esc(o.d.name) + "</b>" + (multi ? "" : buffBadges(o.bp)) +
+          '<small class="k-dim">기본 ' + o.d.hp + "/" + o.d.atk + "/" + o.d.def + (!multi && o.ref ? " · TAR 100% " + fmt(o.ref[0]) : "") + "</small></div>";
+        if (multi) {
+          h += '<div class="cm-btabs" role="tablist">' + o.states.map(function (st, k) {
+            var top = st.rows[0];
+            return '<button type="button" class="cm-btab' + (k === o.bi ? " on" : "") + '" data-sec="' + oi + '" data-k="' + k + '">' + (k === o.bi ? "★ " : "") + esc(buffName(st.bp)) +
+              "<b>" + (top ? M(top.v) : "-") + "</b>" + (top && st.ref ? "<small>TAR 100% " + M(st.ref[0]) + "</small>" : "") + "</button>";
+          }).join("") + "</div>";
+        }
+        o.states.forEach(function (st, k) {
+          h += '<div class="cm-list cm-blist" data-sec="' + oi + '" data-k="' + k + '"' + (k === o.bi ? "" : " hidden") + ">" + st.rows.map(function (r, j) {
+            var lab = E.spiritLabel(r.slots, r.bonus), g = typeof spiritGradeFromLabel === "function" ? spiritGradeFromLabel(lab) : "";
+            return '<details class="cm-row"><summary>' +
+              '<span class="cm-rank">' + (j + 1) + "</span>" +
+              '<span class="cm-name cm-sp">' + sc(esc(lab)) + gradeTag(g) + (multi ? buffBadges(st.bp) : "") + "</span>" +
+              '<span class="cm-v"><b>' + fmt(r.v) + '</b><small>비벨</small></span>' +
+              '<span class="cm-tar"><b>' + tarHtml(r.v, st.ref, null) + "</b><small>TAR</small></span>" +
+              '<span class="cm-stats">' + statsHtml(r) + "</span>" +
+              '<span class="cm-gap">' + gapHtml(r.v, st.ref) + "</span>" +
+              '</summary><div class="cm-det"><div class="cm-det-row"><span class="cm-det-k">장비</span><span>젬 ' + sc(esc(r.gem.text)) + " · " + sc(esc(accText(r.acc))) + " · " + sc(esc(penText(r.pen))) + "</span></div>" +
+              (j === 0 ? refHtml(st.ref) : "") + "</div></details>";
+          }).join("") + "</div>";
+        });
+        h += "</section>";
       });
       res.innerHTML = h;
+      res.querySelectorAll(".cm-btab").forEach(function (b) {
+        b.addEventListener("click", function () {
+          var sec = b.dataset.sec;
+          res.querySelectorAll('.cm-btab[data-sec="' + sec + '"]').forEach(function (x) { x.classList.toggle("on", x === b); });
+          res.querySelectorAll('.cm-blist[data-sec="' + sec + '"]').forEach(function (x) { x.hidden = x.dataset.k !== b.dataset.k; });
+        });
+      });
     }
     step();
   }
@@ -332,5 +384,5 @@
     else if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  load(); syncMode(); syncGrade(); syncMyGear();
+  load(); syncMode(); syncBuffMode(); syncGrade(); syncMyGear();
 })();
