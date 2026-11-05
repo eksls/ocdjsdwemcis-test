@@ -24,8 +24,10 @@
 
   // ── 상태 ─────────────────────────────────────────────────
   var st = { spirits: [], slots: {} };
+  var lastPlace = null;   // 마지막 계산에서 정령이 들어간 칸 { global: {정령번호: [칸]}, round: {...} } — 정령 목록을 바꾸면 지움
   var NEED = 27;
-  function defSpirit() { return { slots: [{ stat: 0, type: "%" }, { stat: 1, type: "%" }, { stat: 2, type: "%" }, { stat: 0, type: "+" }], bonus: 0, count: 1 }; }
+  // 새 정령은 항상 체% 체% 체% 체% · 부가옵 체 (마지막 정령을 따라 하지 않음)
+  function defSpirit() { return { slots: [0, 1, 2, 3].map(function () { return { stat: 0, type: "%" }; }), bonus: 0, count: 1, off: false }; }
   function defSlots() {
     var o = {};
     ATTRS.forEach(function (a) { var ds = ATTR_DRAGONS[a]; o[a] = [0, 1, 2].map(function (k) { return { d: ds[k % ds.length] }; }); });
@@ -46,7 +48,9 @@
           SK.map(function (s, si) { return '<option value="' + si + '"' + (si === o.stat ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
           '<select class="sp-type" data-i="' + i + '" data-k="' + k + '" aria-label="' + (i + 1) + "번 정령 " + (k + 1) + '번 종류"><option' + (o.type === "%" ? " selected" : "") + ">%</option><option" + (o.type === "+" ? " selected" : "") + ">+</option></select></div>";
       }).join("");
-      return '<div class="ct-sp' + (sp.off ? " is-off" : "") + '">' +
+      var pl = !sp.off && lastPlace ? [lastPlace.global[i] || [], lastPlace.round[i] || []] : null;
+      var plCls = !pl ? "" : (pl[0].length && pl[1].length ? " is-both" : pl[0].length || pl[1].length ? " is-one" : " is-none");
+      return '<div class="ct-sp' + (sp.off ? " is-off" : "") + plCls + '">' +
         '<span class="ct-no">' + (i + 1) + "</span>" +
         '<div class="ct-pairs">' + pairs + "</div>" +
         '<div class="ct-sp-b">' +
@@ -55,20 +59,34 @@
           '<label class="ct-off"><input type="checkbox" class="sp-off" data-i="' + i + '"' + (sp.off ? " checked" : "") + '><span>비활성화</span></label>' +
           '<span class="ct-grade">' + gradeTag(gradeOf(sp.slots)) + "</span>" +
           '<button type="button" class="ct-del" data-i="' + i + '" aria-label="' + (i + 1) + '번 정령 지우기">✕</button>' +
-        "</div></div>";
+        "</div>" + (pl ? placeHtml(pl) : "") + "</div>";
     }).join("");
     counts();
   }
   // 비활성화한 정령은 목록에만 남고 배치·개수에서 빠짐
+  function placeHtml(pl) {
+    var where = function (list) { return list.map(function (sl) { return sl.a + " " + (sl.k + 1) + "번 " + sl.d.name; }).join(", "); };
+    if (!pl[0].length && !pl[1].length) return '<div class="ct-place none">두 순서 모두 안 들어감</div>';
+    return '<div class="ct-place">' +
+      '<span class="' + (pl[0].length ? "on" : "off") + '"><i>높은 짝부터</i>' + (pl[0].length ? esc(where(pl[0])) : "안 들어감") + "</span>" +
+      '<span class="' + (pl[1].length ? "on" : "off") + '"><i>속성마다 하나씩</i>' + (pl[1].length ? esc(where(pl[1])) : "안 들어감") + "</span></div>";
+  }
   function total() { return st.spirits.reduce(function (t, s) { return t + (s.off ? 0 : s.count); }, 0); }
   function counts() {
     var n = total();
     var offN = st.spirits.reduce(function (t, s) { return t + (s.off ? s.count : 0); }, 0);
     $("spCount").innerHTML = st.spirits.length ? "· " + st.spirits.length + "종 · 사용 " + n + "개" + (offN ? " (비활성화 " + offN + "개)" : "") + (n < NEED ? ' <span class="ct-short">' + (NEED - n) + "개 모자람</span>" : "") : "";
   }
+  function clearPlace() {
+    if (!lastPlace) return;
+    lastPlace = null;
+    document.querySelectorAll("#spList .ct-place").forEach(function (el) { el.remove(); });
+    document.querySelectorAll("#spList .ct-sp").forEach(function (el) { el.classList.remove("is-both", "is-one", "is-none"); });
+  }
   $("spList").addEventListener("change", function (e) {
     var t = e.target, i = +t.dataset.i, sp = st.spirits[i];
     if (!sp) return;
+    clearPlace();
     if (t.classList.contains("sp-stat")) { sp.slots[+t.dataset.k].stat = +t.value; t.dataset.stat = SC[+t.value]; }
     else if (t.classList.contains("sp-type")) sp.slots[+t.dataset.k].type = t.value;
     else if (t.classList.contains("sp-bonus")) sp.bonus = +t.value;
@@ -79,12 +97,10 @@
   });
   $("spList").addEventListener("click", function (e) {
     var b = e.target.closest(".ct-del"); if (!b) return;
-    st.spirits.splice(+b.dataset.i, 1); renderSpirits(); save();
+    lastPlace = null; st.spirits.splice(+b.dataset.i, 1); renderSpirits(); save();
   });
   $("spAdd").addEventListener("click", function () {
-    var last = st.spirits[st.spirits.length - 1];
-    var sp = last ? JSON.parse(JSON.stringify(last)) : defSpirit(); sp.count = 1; sp.off = false;
-    st.spirits.push(sp); renderSpirits(); save();
+    lastPlace = null; st.spirits.push(defSpirit()); renderSpirits(); save();
   });
   // ── 27칸 ─────────────────────────────────────────────────
   function renderSlots() {
@@ -308,7 +324,8 @@
       if (lockOn && e1 >= T) return val(r) < val(b);
       return val(r) > val(b) || (val(r) === val(b) && r.v > b.v);
     }
-    var filled = slots.map(function () { return null; }), step = 0;
+    sps.forEach(function (x) { x.init = x.left; });
+    var filled = null, step = 0;
     function pickInto(slotIdx) {
       var bx = -1, bs = -1, br = null;
       for (var xi = 0; xi < sps.length; xi++) {
@@ -324,45 +341,75 @@
       return true;
     }
     var all = slots.map(function (_, i) { return i; });
-    if (fill === "round") {
-      for (var round = 0; round < 3; round++) ATTRS.forEach(function (a) {
-        pickInto(all.filter(function (i) { return slots[i].a === a; }));
-      });
-    } else {
-      while (pickInto(all)) {}
-    }
 
-    // 기준선: 기준선 아래 칸만 남은 정령과 바꾸거나 칸끼리 바꿔서 올림 (기준선 이상 칸은 그대로)
-    var moves = 0;
-    if (lockOn) {
-      var q = function (r) { return Math.min(val(r), T); };
+    // 칸 바꾸기: 남은 정령으로 바꿔 넣기 + 칸끼리 맞바꾸기. q = 칸 점수, canTouch = 손댈 수 있는 칸, keepOk = 바꾼 뒤 지켜야 할 조건
+    function improve(q, canTouch, keepOk) {
+      var n = 0;
       for (var guard = 0; guard < 2000; guard++) {
-        var low = all.filter(function (i) { return filled[i] && val(filled[i].r) < T; });
-        if (!low.length) break;
+        var open = all.filter(function (i) { return filled[i] && canTouch(filled[i].r); });
+        if (!open.length) break;
         var best = null;
-        low.forEach(function (i) {
+        open.forEach(function (i) {
           var cur = filled[i];
-          // 남은 정령으로 바꾸기
           sps.forEach(function (x, xi) {
             if (x.left <= 0 || xi === cur.xi) return;
             var r = score[xi][slots[i].key], gain = q(r) - q(cur.r);
-            if (gain > 1e-9 && (!best || gain > best.gain)) best = { type: "swapIn", i: i, xi: xi, r: r, gain: gain };
+            if (gain > 1e-9 && keepOk(r) && (!best || gain > best.gain)) best = { type: "swapIn", i: i, xi: xi, r: r, gain: gain };
           });
-          // 기준선 아래 칸끼리 바꾸기
-          low.forEach(function (j) {
+          open.forEach(function (j) {
             if (j <= i) return;
             var a1 = score[filled[j].xi][slots[i].key], a2 = score[cur.xi][slots[j].key];
             var gain = q(a1) + q(a2) - q(cur.r) - q(filled[j].r);
-            if (gain > 1e-9 && (!best || gain > best.gain)) best = { type: "swap", i: i, j: j, r1: a1, r2: a2, gain: gain };
+            if (gain > 1e-9 && keepOk(a1) && keepOk(a2) && (!best || gain > best.gain)) best = { type: "swap", i: i, j: j, r1: a1, r2: a2, gain: gain };
           });
         });
         if (!best) break;
-        moves++;
+        n++;
         if (best.type === "swapIn") { sps[filled[best.i].xi].left++; sps[best.xi].left--; filled[best.i] = { xi: best.xi, r: best.r, step: filled[best.i].step, moved: true }; }
         else { var fi = filled[best.i], fj = filled[best.j]; filled[best.i] = { xi: fj.xi, r: best.r1, step: fi.step, moved: true }; filled[best.j] = { xi: fi.xi, r: best.r2, step: fj.step, moved: true }; }
       }
+      return n;
     }
-    render(slots, filled, sps, pool, { crit: crit, fill: fill, lockOn: lockOn, T: T, moves: moves, val: val });
+    // 한 가지 순서로 27칸 채우기 (+ 기준선이면 바꿔 넣기). 결과를 돌려주고 sps[].left 는 그 결과 기준으로 남음
+    function fillWith(mode) {
+      sps.forEach(function (x) { x.left = x.init; });
+      filled = slots.map(function () { return null; }); step = 0;
+      if (mode === "round") {
+        for (var round = 0; round < 3; round++) ATTRS.forEach(function (a) {
+          pickInto(all.filter(function (i) { return slots[i].a === a; }));
+        });
+      } else {
+        while (pickInto(all)) {}
+      }
+      var res = { moves: 0, moves2: 0, allOver: false };
+      if (lockOn) {
+        // 1) 기준선 아래 칸만 기준선까지 올림 (기준선 이상 칸은 그대로)
+        res.moves = improve(function (r) { return Math.min(val(r), T); }, function (r) { return val(r) < T; }, function () { return true; });
+        // 2) 27칸이 전부 기준선 이상이면 멈추지 않고 남은 정령·맞바꾸기로 더 올림 (어느 칸도 기준선 밑으로는 안 내려감, 100% 칸은 그대로)
+        res.allOver = all.every(function (i) { return filled[i] && val(filled[i].r) >= T; });
+        if (res.allOver) res.moves2 = improve(val, function (r) { return val(r) < 100; }, function (r) { return val(r) >= T; });
+      }
+      res.filled = filled;
+      // 정령마다 들어간 칸 목록
+      res.place = {};
+      filled.forEach(function (f, si) { if (!f) return; var i = sps[f.xi].i; (res.place[i] = res.place[i] || []).push(slots[si]); });
+      return res;
+    }
+    // 두 가지 순서를 다 돌려서 보유 정령 목록에 어디 들어갔는지 표시하고, 결과 화면은 고른 순서로
+    var other = fill === "round" ? "global" : "round";
+    var resOther = fillWith(other);
+    var res = fillWith(fill);
+    var moves = res.moves, moves2 = res.moves2, allOver = res.allOver;
+    lastPlace = { global: fill === "global" ? res.place : resOther.place, round: fill === "round" ? res.place : resOther.place };
+    renderSpirits();
+    // 남은 정령: 27칸 중 가장 잘 맞는 칸의 점수(기준 SAR/TAR, 비벨 기준이면 SAR) — 높은 순, 맨 아래가 제일 쓸모없음
+    var lc = crit === "tar" ? "tar" : "sar";
+    sps.forEach(function (x, xi) {
+      if (x.left <= 0) return;
+      var bk = null; Object.keys(pool).forEach(function (key) { var r = score[xi][key]; if (!bk || r[lc] > score[xi][bk][lc]) bk = key; });
+      x.bestKey = bk; x.bestVal = score[xi][bk][lc]; x.bestName = bk.split("|")[0];
+    });
+    render(slots, filled, sps, pool, { crit: crit, fill: fill, lockOn: lockOn, T: T, moves: moves, moves2: moves2, allOver: allOver, val: val, lc: lc });
   }
 
   function sc(t) { return String(t).replace(/(체|공|방)(\d+%?|%|\+(?=\s|$|·|\/))?/g, function (m, s2) { return '<span class="sc sc-' + SC[SK.indexOf(s2)] + '">' + m + "</span>"; }); }
@@ -380,7 +427,8 @@
       "<div><b>" + floor1(sumSar / n) + "%</b><small>평균 SAR</small></div>" +
       "<div><b>" + floor1(sumTar / n) + "%</b><small>평균 TAR</small></div>" +
       (o.lockOn ? "<div><b>" + over + '<span class="ct-of">/' + n + "</span></b><small>기준선 이상</small></div>" : "<div><b>" + leftN + "</b><small>남은 정령</small></div>") + "</div>";
-    if (o.lockOn && o.moves) h += '<p class="cm-legend">기준선 아래 칸을 올리려고 ' + o.moves + "번 바꿔 넣었어요 (바뀐 칸은 ↻).</p>";
+    if (o.lockOn && (o.moves || o.moves2)) h += '<p class="cm-legend">' + (o.moves ? "기준선 아래 칸을 올리려고 " + o.moves + "번" : "") + (o.moves && o.moves2 ? ", " : "") + (o.moves2 ? "전부 기준선을 넘어서 더 올리려고 " + o.moves2 + "번" : "") + " 바꿔 넣었어요 (바뀐 칸은 ↻).</p>";
+    else if (o.lockOn && o.allOver) h += '<p class="cm-legend">27칸이 전부 기준선 이상이에요. 남은 정령으로 더 올릴 수 있는 칸은 없었어요.</p>';
     h += '<p class="cm-legend">#번호 = 들어간 순서 · <b>SAR</b> = 그 칸(용·버프)에서 고른 스펙으로 낼 수 있는 최고 비벨 기준 TAR · <b>TAR</b> = 최고 스펙 기준 (디비룡). 칸을 누르면 장비가 보여요.</p>';
     h += '<div class="ct-res">';
     ATTRS.forEach(function (a) {
@@ -406,9 +454,21 @@
     });
     h += "</div>";
     if (leftList.length) {
-      h += '<h3 class="ct-left-h">남은 정령 (' + leftN + "개)</h3><div class=\"ct-left\">" + leftList.map(function (x) {
+      var LN = o.lc === "tar" ? "TAR" : "SAR";
+      leftList = leftList.slice().sort(function (p1, p2) { return p2.bestVal - p1.bestVal; });
+      h += '<h3 class="ct-left-h">남은 정령 (' + leftN + '개) <small class="k-dim">· 가장 잘 맞는 칸의 ' + LN + " 높은 순 (맨 아래가 제일 쓸모없음)</small></h3><div class=\"ct-left-list\">" + leftList.map(function (x, k) {
         var lab = E.spiritLabel(x.sp.slots, x.sp.bonus);
-        return '<span class="ct-left-i">' + (x.i + 1) + "번 " + sc(esc(lab)) + gradeTag(gradeOf(x.sp.slots)) + (x.left > 1 ? " ×" + x.left : "") + "</span>";
+        // 다른 순서에서는 들어갔는지 (회색 = 두 순서 모두 안 들어감, 노랑 = 다른 순서에서는 들어감)
+        var otherKey = o.fill === "round" ? "global" : "round", otherName = o.fill === "round" ? "높은 짝부터" : "속성마다 하나씩";
+        var op = lastPlace && lastPlace[otherKey][x.i] || [];
+        var opTxt = op.map(function (sl) { return sl.a + " " + (sl.k + 1) + "번 " + sl.d.name; }).join(", ");
+        var used = x.init - x.left;   // 고른 순서에서 이 정령이 쓰인 개수 (개수 2개 이상이면 일부만 남을 수 있음)
+        var tag = '<div class="ct-left-pl">' + (used ? '<span class="on"><i>' + (o.fill === "round" ? "속성마다 하나씩" : "높은 짝부터") + "</i>" + used + "개 들어감</span>" : "") +
+          (op.length ? '<span class="on"><i>' + otherName + "</i>" + esc(opTxt) + "</span>" : '<span class="off"><i>' + otherName + "</i>안 들어감</span>") + "</div>";
+        var cls = op.length || used ? " is-one" : " is-none";
+        return '<div class="ct-left-row' + cls + (k === leftList.length - 1 && leftList.length > 1 ? " is-worst" : "") + '"><span class="ct-left-no">' + (x.i + 1) + "번</span>" +
+          '<span class="ct-left-sp">' + sc(esc(lab)) + gradeTag(gradeOf(x.sp.slots)) + (x.left > 1 ? ' <small class="k-dim">×' + x.left + "</small>" : "") + "</span>" +
+          '<span class="ct-left-v"><b>' + floor1(x.bestVal) + "%</b><small>" + LN + " · " + esc(x.bestName) + "</small></span>" + tag + "</div>";
       }).join("") + "</div>";
     }
     $("ctResult").innerHTML = h;
