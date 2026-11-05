@@ -39,29 +39,32 @@
   function gradeTag(g, size) { return g && typeof spiritGradeTag === "function" ? spiritGradeTag(g, { size: size || 11 }) : ""; }
   function renderSpirits() {
     var list = $("spList");
-    if (!st.spirits.length) { list.innerHTML = '<p class="ct-empty">정령이 없어요. [+ 정령 추가] 또는 [용/정령 탭에서 가져오기]를 눌러 주세요.</p>'; counts(); return; }
+    if (!st.spirits.length) { list.innerHTML = '<p class="ct-empty">정령이 없어요. [+ 정령 추가]를 눌러 주세요.</p>'; counts(); return; }
     list.innerHTML = st.spirits.map(function (sp, i) {
       var pairs = sp.slots.map(function (o, k) {
         return '<div class="k-pair"><select class="sp-stat" data-i="' + i + '" data-k="' + k + '" data-stat="' + SC[o.stat] + '" aria-label="' + (i + 1) + "번 정령 " + (k + 1) + '번 스탯">' +
           SK.map(function (s, si) { return '<option value="' + si + '"' + (si === o.stat ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" +
           '<select class="sp-type" data-i="' + i + '" data-k="' + k + '" aria-label="' + (i + 1) + "번 정령 " + (k + 1) + '번 종류"><option' + (o.type === "%" ? " selected" : "") + ">%</option><option" + (o.type === "+" ? " selected" : "") + ">+</option></select></div>";
       }).join("");
-      return '<div class="ct-sp">' +
+      return '<div class="ct-sp' + (sp.off ? " is-off" : "") + '">' +
         '<span class="ct-no">' + (i + 1) + "</span>" +
         '<div class="ct-pairs">' + pairs + "</div>" +
         '<div class="ct-sp-b">' +
-          '<select class="sp-bonus" data-i="' + i + '" aria-label="' + (i + 1) + '번 정령 부가옵">' + ["체 +40", "공 +10", "방 +10"].map(function (t, b) { return '<option value="' + b + '"' + (b === sp.bonus ? " selected" : "") + ">부 " + t + "</option>"; }).join("") + "</select>" +
+          '<select class="sp-bonus" data-i="' + i + '" aria-label="' + (i + 1) + '번 정령 부가옵">' + ["체+40", "공+10", "방+10"].map(function (t, b) { return '<option value="' + b + '"' + (b === sp.bonus ? " selected" : "") + ">부 " + t + "</option>"; }).join("") + "</select>" +
           '<label class="ct-n"><input type="number" class="sp-n" data-i="' + i + '" min="1" max="27" value="' + sp.count + '" inputmode="numeric" aria-label="' + (i + 1) + '번 정령 개수"><span>개</span></label>' +
+          '<label class="ct-off"><input type="checkbox" class="sp-off" data-i="' + i + '"' + (sp.off ? " checked" : "") + '><span>비활성화</span></label>' +
           '<span class="ct-grade">' + gradeTag(gradeOf(sp.slots)) + "</span>" +
           '<button type="button" class="ct-del" data-i="' + i + '" aria-label="' + (i + 1) + '번 정령 지우기">✕</button>' +
         "</div></div>";
     }).join("");
     counts();
   }
-  function total() { return st.spirits.reduce(function (t, s) { return t + s.count; }, 0); }
+  // 비활성화한 정령은 목록에만 남고 배치·개수에서 빠짐
+  function total() { return st.spirits.reduce(function (t, s) { return t + (s.off ? 0 : s.count); }, 0); }
   function counts() {
     var n = total();
-    $("spCount").innerHTML = st.spirits.length ? "· " + st.spirits.length + "종 " + n + "개" + (n < NEED ? ' <span class="ct-short">(' + (NEED - n) + "개 모자람)</span>" : "") : "";
+    var offN = st.spirits.reduce(function (t, s) { return t + (s.off ? s.count : 0); }, 0);
+    $("spCount").innerHTML = st.spirits.length ? "· " + st.spirits.length + "종 · 사용 " + n + "개" + (offN ? " (비활성화 " + offN + "개)" : "") + (n < NEED ? ' <span class="ct-short">' + (NEED - n) + "개 모자람</span>" : "") : "";
   }
   $("spList").addEventListener("change", function (e) {
     var t = e.target, i = +t.dataset.i, sp = st.spirits[i];
@@ -70,6 +73,7 @@
     else if (t.classList.contains("sp-type")) sp.slots[+t.dataset.k].type = t.value;
     else if (t.classList.contains("sp-bonus")) sp.bonus = +t.value;
     else if (t.classList.contains("sp-n")) { sp.count = Math.max(1, Math.min(27, parseInt(t.value) || 1)); t.value = sp.count; }
+    else if (t.classList.contains("sp-off")) { sp.off = t.checked; t.closest(".ct-sp").classList.toggle("is-off", sp.off); }
     var row = t.closest(".ct-sp"); if (row) row.querySelector(".ct-grade").innerHTML = gradeTag(gradeOf(sp.slots));
     counts(); save();
   });
@@ -79,9 +83,8 @@
   });
   $("spAdd").addEventListener("click", function () {
     var last = st.spirits[st.spirits.length - 1];
-    var sp = last ? JSON.parse(JSON.stringify(last)) : defSpirit(); sp.count = 1;
+    var sp = last ? JSON.parse(JSON.stringify(last)) : defSpirit(); sp.count = 1; sp.off = false;
     st.spirits.push(sp); renderSpirits(); save();
-    var rows = $("spList").querySelectorAll(".ct-sp"); if (rows.length) rows[rows.length - 1].scrollIntoView({ block: "nearest" });
   });
   // ── 27칸 ─────────────────────────────────────────────────
   function renderSlots() {
@@ -244,7 +247,7 @@
     var okSlot = function (o) { return o && Array.isArray(o.slots) && o.slots.length === 4; };
     st.spirits = (s.spirits || []).filter(okSlot).map(function (o) {
       return { slots: o.slots.map(function (x) { return { stat: [0, 1, 2].indexOf(+x.stat) >= 0 ? +x.stat : 0, type: x.type === "+" ? "+" : "%" }; }),
-        bonus: [0, 1, 2].indexOf(+o.bonus) >= 0 ? +o.bonus : 0, count: Math.max(1, Math.min(27, parseInt(o.count) || 1)) };
+        bonus: [0, 1, 2].indexOf(+o.bonus) >= 0 ? +o.bonus : 0, count: Math.max(1, Math.min(27, parseInt(o.count) || 1)), off: !!o.off };
     });
     if (s.slots) ATTRS.forEach(function (a) {
       (s.slots[a] || []).slice(0, 3).forEach(function (o, k) {
@@ -279,7 +282,7 @@
     var lockOn = crit !== "vval" && $("lockOn").checked;
     var T = Math.max(50, Math.min(100, parseFloat($("lockVal").value) || 99));
     var ba = buffAttrs();
-    var sps = st.spirits.map(function (s2, i) { return { i: i, sp: s2, left: s2.count, eff: E.spiritEffect(s2.slots, s2.bonus) }; });
+    var sps = st.spirits.map(function (s2, i) { return { i: i, sp: s2, left: s2.off ? 0 : s2.count, eff: E.spiritEffect(s2.slots, s2.bonus) }; }).filter(function (x) { return x.left > 0; });
     var slots = [];
     ATTRS.forEach(function (a) { st.slots[a].forEach(function (s2, k) { var d = E.DRAGONS[s2.d], bp = E.buffPcts(d, ba); slots.push({ a: a, k: k, d: d, bp: bp, key: d.name + "|" + bp.join() }); }); });
 
