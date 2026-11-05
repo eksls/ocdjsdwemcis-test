@@ -1,0 +1,52 @@
+/* 챔대 21층 */
+html.ui-v2 .cm-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: var(--sheet-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; margin-bottom: 12px; }
+html.ui-v2 .cm-seg-btn { position: relative; margin: 0; cursor: pointer; }
+html.ui-v2 .cm-seg-btn input { position: absolute; opacity: 0; width: 1px !important; height: 1px !important; }
+html.ui-v2 .cm-seg-btn span { display: flex; align-items: center; justify-content: center; height: 38px; border-radius: 9px; font-size: 14.5px; font-weight: 700; color: var(--ink-3); }
+html.ui-v2 .cm-seg-btn input:checked + span { background: var(--sheet); color: var(--ink); box-shadow: 0 1px 3px rgba(24,33,58,.14); }
+html.ui-v2 .cm-seg-btn input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 1px; }
+html.ui-v2 .cm-block[hidden] { display: none !important; }
+html.ui-v2 .cm-span2 { grid-column: span 2; }
+html.ui-v2 .cm-grade-box { display: flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 13px; }
+
+html.ui-v2 .cm-legend { margin: -4px 2px 10px; font-size: 12.5px; color: var(--ink-3); line-height: 1.5; }
+html.ui-v2 .cm-list { display: grid; gap: 8px; }
+html.ui-v2 .cm-row { background: var(--sheet); border: 1px solid var(--line-2); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+html.ui-v2 .cm-row.is-buff { border-color: #efd9a6; }
+html.ui-v2 .cm-row > summary {
+  list-style: none; cursor: pointer; display: grid; gap: 4px 10px; padding: 10px 12px;
+  grid-template-columns: 26px minmax(0, 1fr) auto; grid-template-areas: "rank name tar" "rank v v" "rank stats stats" "rank gap gap";
+  align-items: center;
+}
+html.ui-v2 .cm-row > summary::-webkit-details-marker { display: none; }
+html.ui-v2 .cm-rank { grid-area: rank; align-self: start; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: var(--sheet-2); color: var(--ink-2); font: 700 13px var(--num); }
+html.ui-v2 .cm-list > .cm-row:first-child .cm-rank { background: var(--ink); color: #fff; }
+html.ui-v2 .cm-name { grid-area: name; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; min-width: 0; font-size: 15.5px; }
+html.ui-v2 .cm-name.cm-sp { font-size: 14px; }
+html.ui-v2 .cm-best { font-size: 11.5px; font-weight: 700; color: #3b2500; background: var(--gold); border-radius: 999px; padding: 1px 8px; }
+html.ui-v2 .cm-buff { font-size: 11.5px; font-weight: 700; color: var(--buff); background: var(--buff-bg); border-radius: 6px; padding: 1px 6px; }
+html.ui-v2 .cm-v { grid-area: v; display: flex; align-items: baseline; gap: 6px; }
+html.ui-v2 .cm-v b { font: 700 21px var(--num); letter-spacing: .01em; }
+html.ui-v2 .cm-v small, html.ui-v2 .cm-tar small { font-size: 11.5px; color: var(--ink-3); font-weight: 600; }
+html.ui-v2 .cm-tar { grid-area: tar; display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+html.ui-v2 .cm-tar b { font: 700 16px var(--num); }
+html.ui-v2 .cm-tar-m { font-size: .82em; color: var(--ink-3); margin-left: 2px; }
+html.ui-v2 .cm-stats { grid-area: stats; display: flex; gap: 6px; }
+html.ui-v2 .cm-st { font: 700 14px var(--num); padding: 1px 8px; border-radius: 6px; }
+html.ui-v2 .cm-st.hp { color: var(--hp); background: var(--hp-bg); }
+html.ui-v2 .cm-st.atk { color: var(--atk); background: var(--atk-bg); }
+html.ui-v2 .cm-st.def { color: var(--def); background: var(--def-bg); }
+html.ui-v2 .cm-gap { grid-area: gap; font-size: 12.5px; color: var(--ink-3); }
+html.ui-v2 .cm-gap b { color: var(--ink-2); }
+html.ui-v2 .cm-det { border-top: 1px solid var(--line-2); background: var(--sheet-2); padding: 8px 12px 10px; display: grid; gap: 6px; font-size: 13px; }
+html.ui-v2 .cm-det-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; line-height: 1.5; }
+html.ui-v2 .cm-det-k { color: var(--ink-3); font-weight: 600; font-size: 12.5px; }
+html.ui-v2 .cm-det small { color: var(--ink-3); }
+html.ui-v2 .cm-row[open] > summary { background: #fbfcfe; }
+html.ui-v2 .cm-opt { margin: 0 0 16px; }
+html.ui-v2 .cm-opt-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 4px 2px 8px; font-size: 16px; }
+html.ui-v2 .cm-opt-h small { width: 100%; }
+@media (min-width: 720px) {
+  html.ui-v2 .cm-row > summary { grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; grid-template-areas: "rank name v stats tar" "rank gap gap gap gap"; }
+  html.ui-v2 .cm-opt-h small { width: auto; }
+}
