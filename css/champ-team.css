@@ -91,3 +91,5 @@ html.ui-v2 .ct-res-attr .ct-attr-h { align-items: center; }
 @media (max-width: 639px) { html.ui-v2 .ct-attrs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } html.ui-v2 .ct-attr { padding: 7px; } }
 @media (max-width: 360px) { html.ui-v2 .ct-attrs { grid-template-columns: minmax(0, 1fr); } }
 html.ui-v2 .ct-cell .cm-stats { grid-area: auto; }
+html.ui-v2 .ct-sp-b .sp-bonus { flex: 0 0 96px; }
+html.ui-v2 .ct-grade { flex: 1 1 0; }
