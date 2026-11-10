@@ -881,3 +881,10 @@ html.ui-v2 .custom-pendant .num { margin: 0 !important; padding: 0 !important; }
 html.ui-v2 .chip.chip-buff { color: var(--buff); background: var(--buff-bg); border-color: #efd9a6; font-weight: 700; }
 html.ui-v2 .chip.chip-nerf { color: var(--nerf); background: var(--nerf-bg); border-color: #ecc5d2; font-weight: 700; }
 html.ui-v2 .chip.chip-both { color: #5b4a2e; background: linear-gradient(90deg, var(--buff-bg) 50%, var(--nerf-bg) 50%); border-color: #e3cdb9; font-weight: 700; }
+
+/* 길드전: 자리별 속성 · 타입 */
+html.ui-v2 .k-seats { display: grid; gap: 6px; max-width: 560px; }
+html.ui-v2 .k-seat-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) minmax(0, 1fr); gap: 6px; align-items: center; }
+html.ui-v2 .k-seat-row select { width: 100% !important; min-width: 0; }
+html.ui-v2 .k-seat-head span { font-size: 12px; font-weight: 600; color: var(--ink-3); padding-left: 2px; }
+html.ui-v2 .k-tag.seat { color: var(--ink); background: var(--sheet-2); border: 1px solid var(--line-2); }
