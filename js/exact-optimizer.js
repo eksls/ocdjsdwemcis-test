@@ -7,6 +7,7 @@
  *   최대화:  Σ_i  H_i · A_i · D_i                         (용별 비벨 = 체×공×방)
  *   제약:    용 중복 금지 / 장신구·팬던트는 보유 개수까지 / 젬은 스탯·단계별 보유 개수까지
  *            용 1마리당 젬 슬롯 5칸 / 예비 정령 수 ≤ 설정값
+ *            (자리 조건을 켜면) 세 마리를 자리 1·2·3 에 하나씩 앉힐 수 있어야 함 — 타입 후보마다 seatMask(앉을 수 있는 자리 비트)
  *
  *   스탯 하나(s ∈ 체,공,방)는 그 스탯 젬 합 G 에만 의존한다:
  *     x  = 기본 + G + 물약
@@ -65,6 +66,15 @@
     const accs = input.accs || [];
     const pens = input.pens || [];
     const stats = { options: 0, keptOptions: 0, triplesVisited: 0, pairEvals: 0, exactEvals: 0, ms: 0 };
+    const seatsOn = !!input.seatsOn;
+    // 세 마리(자리 비트)를 자리 1·2·3 에 하나씩 앉히는 방법 (없으면 null). 조건을 안 켜면 항상 [0,1,2]
+    const PERM3 = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+    function seatPerm(m0, m1, m2) {
+      if (!seatsOn) return PERM3[0];
+      for (const p of PERM3) if ((m0 >> p[0] & 1) && (m1 >> p[1] & 1) && (m2 >> p[2] & 1)) return p;
+      return null;
+    }
+    const maskOf = o => o.ctx.v.seatMask;
 
     // ---------- 젬 재고: 스탯별 값 내림차순 펼침 (부족분은 값 0 빈칸) ----------
     const NEED_MAX = SLOTS * 3;
@@ -139,6 +149,7 @@
     function forEachOption(di, cb) {
       const d = dragons[di];
       d.variants.forEach((v, vi) => {
+        if (seatsOn && !v.seatMask) return;   // 어느 자리에도 못 앉는 타입 후보
         for (const ac of accChoices) for (const pc of penChoices) {
           const ctx = { di, vi, v, ac, pc, memo: [new Map(), new Map(), new Map()] };
           const tbl = [0, 1, 2].map(s => {
@@ -169,7 +180,9 @@
         if (gi >= 0) { const u = (accUse.get(gi) || 0) + 1; if (u > accs[gi].count) return false; accUse.set(gi, u); }
         if (pi >= 0) { const u = (penUse.get(pi) || 0) + 1; if (u > pens[pi].count) return false; penUse.set(pi, u); }
       }
-      return reserve <= maxReserve;
+      if (reserve > maxReserve) return false;
+      if (seatsOn && list.length === 3 && !seatPerm(maskOf(list[0]), maskOf(list[1]), maskOf(list[2]))) return false;
+      return true;
     }
 
     // 할당 없는 빠른 호환성 검사 (분기 한정 안쪽 루프용)
@@ -224,6 +237,7 @@
     }
 
     function buildResult(trio, ev) {
+      const perm = seatPerm(maskOf(trio[0]), maskOf(trio[1]), maskOf(trio[2])) || PERM3[0];
       return trio.map((o, i) => {
         const gemLevels = [0, 1, 2].map(s => {
           const spl = ev.pick[s];
@@ -236,6 +250,7 @@
           dragonIndex: o.ctx.di, variantIndex: o.ctx.vi,
           accIndex: o.ctx.ac.gi, enc: o.ctx.ac.enc, penIndex: o.ctx.pc.pi,
           shape: o.sh.slice(), gemLevels, stats: st, vval: st[0] * st[1] * st[2],
+          seat: seatsOn ? perm[i] : -1,
         };
       });
     }
@@ -286,6 +301,7 @@
       if (mx[di] <= thr) continue;
       const list = [];
       forEachOption(di, (ctx, sh, ub) => { if (ub > thr) list.push({ ctx, sh, ub }); });
+      if (!list.length) continue;   // 자리 조건으로 남은 옵션이 없는 용
       list.sort((x, y) => y.ub - x.ub);
       list.forEach((o, idx) => { o.idx = idx; });
       stats.keptOptions += list.length;
@@ -311,6 +327,7 @@
             for (const b of B) {
               if (a.ub + b.ub + C[0].ub <= best) break;
               if (!compat2(a, b)) continue;
+              if (seatsOn) { const ma = maskOf(a), mb = maskOf(b); if ((ma | mb) === ma && ma === mb && (ma & (ma - 1)) === 0) continue; }
               const pk = a.idx * nB + b.idx;
               let ab = pairCache.get(pk);           // a,b 젬 공유를 반영한 정확한 두 마리 값
               if (ab === undefined) { ab = pairEval(a, b); pairCache.set(pk, ab); stats.pairEvals++; }
@@ -318,6 +335,7 @@
               for (const c of C) {
                 if (ab + c.ub <= best) break;       // 공유 반영 상한으로 중단 (유효)
                 if (!compat3(a, b, c)) continue;
+                if (seatsOn && !seatPerm(maskOf(a), maskOf(b), maskOf(c))) continue;
                 const trio = [a, b, c];
                 const ev = exactEval(trio);
                 if (ev.total > best) { best = ev.total; bestTeam = buildResult(trio, ev); }
@@ -330,7 +348,7 @@
 
     stats.ms = Date.now() - t0;
     if (!bestTeam) return { total: 0, team: [], stats };
-    bestTeam.sort((x, y) => y.vval - x.vval);
+    if (seatsOn) bestTeam.sort((x, y) => x.seat - y.seat); else bestTeam.sort((x, y) => y.vval - x.vval);
     return { total: best, team: bestTeam, stats };
   }
 

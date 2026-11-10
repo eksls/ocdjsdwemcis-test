@@ -195,6 +195,10 @@ run: function() {
         Object.keys(rawConfig).forEach(k => { config[k] = _pick(rawConfig[k]); });
 
         const maxReserve = parseInt(getV("reserve-count")) || 0;
+        // 자리별 속성·타입 ("" = 전체). 하나라도 정하면 세 마리를 자리 1·2·3 에 맞춰 앉힘
+        const seatV = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
+        const seats = [1, 2, 3].map(n => ({ attr: seatV(`seat${n}-attr`), type: seatV(`seat${n}-type`) }));
+        const seatsOn = seats.some(x => x.attr || x.type);
         const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
 
         const pool = {};
@@ -366,9 +370,32 @@ run: function() {
                 bonus: [sp.bonus === "체" ? 40 : 0, sp.bonus === "공" ? 10 : 0, sp.bonus === "방" ? 10 : 0]
             };
         }
-        function _pushDragon(dragon, attrKr, types, flags) {
-            const variants = (types || []).map(t => _variantFor(dragon, attrKr, t)).filter(Boolean);
-            if (!variants.length) return;
+        // flex = 이 용이 자리에 맞춰 바꿀 수 있는 것 { attr, type } (예비 정령: 둘 다 / 해제: 모드대로 / 일반 용: 없음)
+        const _seatFits = (v, st) => (!st.attr || v.attrKr === st.attr) && (!st.type || v.type === st.type);
+        function _pushDragon(dragon, attrKr, types, flags, flex) {
+            flex = flex || { attr: false, type: false };
+            const list = (types || []).map(t => _variantFor(dragon, attrKr, t)).filter(Boolean);
+            if (seatsOn) {
+                // 정한 자리마다: 그 속성·타입으로 넣어 본 후보 추가 (바꿀 수 없는 쪽은 원래 값이 맞을 때만)
+                seats.forEach(st => {
+                    if (!st.attr && !st.type) return;
+                    let a = attrKr;
+                    if (st.attr) { if (flex.attr) a = st.attr; else if (attrKr !== st.attr) return; }
+                    let ts;
+                    if (st.type) { if (flex.type || (types || []).includes(st.type)) ts = [st.type]; else return; }
+                    else ts = (flex.type && a !== attrKr) ? _getTypesToTry(a) : (types || []);
+                    ts.forEach(t => { const v = _variantFor(dragon, a, t); if (v) list.push(v); });
+                });
+            }
+            // 같은 (속성, 타입) 후보는 하나만, 자리 비트 붙이기
+            const seen = new Set(), variants = [];
+            list.forEach(v => {
+                const k = (v.attrKr || "") + "|" + v.type;
+                if (seen.has(k)) return; seen.add(k);
+                v.seatMask = seats.reduce((m, st, j) => m | (_seatFits(v, st) ? 1 << j : 0), 0);
+                variants.push(v);
+            });
+            if (!variants.length || (seatsOn && !variants.some(v => v.seatMask))) return;
             optDragons.push({ name: dragon.name, isReserve: !!flags.isReserve, variants });
             optMeta.push({ dragon, flags, attrKr });
         }
@@ -386,17 +413,18 @@ run: function() {
                 const autoTypes = (finalAttr === attrKr) ? types
                     : ((reserveTypeMode === "typeUnified" || reserveTypeMode === "allUnified" || !virtualDragon.selectedTypes.length) ? _getTypesToTry(finalAttr) : types);
                 const finalTypes = (spiritUnlock === "typeFixed") ? [dragon.type] : autoTypes;
-                _pushDragon(dragon, finalAttr, finalTypes, { isUnlocked: true, isAllType: (finalTypes || []).length > 1 });
+                _pushDragon(dragon, finalAttr, finalTypes, { isUnlocked: true, isAllType: (finalTypes || []).length > 1 },
+                    { attr: spiritUnlock !== "attrFixed", type: spiritUnlock !== "typeFixed" });
             } else {
                 const dragonAttrKr = attrMap[dragon.attrKey] || dragon.attrKey;
-                _pushDragon(dragon, dragonAttrKr, [dragon.type], {});
+                _pushDragon(dragon, dragonAttrKr, [dragon.type], {}, { attr: false, type: false });
             }
         });
 
         if (maxReserve > 0) {
             reserveDragons.forEach(dragon => {
                 const { attrKr, types } = _resolveReserve(dragon);
-                _pushDragon(dragon, attrKr, types, { isReserve: true, isAllType: (types || []).length > 1 });
+                _pushDragon(dragon, attrKr, types, { isReserve: true, isAllType: (types || []).length > 1 }, { attr: true, type: true });
             });
         }
 
@@ -437,7 +465,7 @@ run: function() {
             lv: lvl, val: DB.GEM_LEVEL_STATS[lvl][kr], count: resPool[lvl]?.[kr] || 0
         })));
 
-        const solved = ExactOptimizer.solve({ dragons: optDragons, accs: optAccs, pens: optPens, gems: optGems, maxReserve });
+        const solved = ExactOptimizer.solve({ dragons: optDragons, accs: optAccs, pens: optPens, gems: optGems, maxReserve, seatsOn });
 
         console.group("🛡️ 길드전 최적화 v3 - 정확 최적화(분기 한정)");
         console.log(`용 후보 ${optDragons.length}마리, 옵션 ${solved.stats.options.toLocaleString()}개 중 ${solved.stats.keptOptions.toLocaleString()}개 탐색, 정확 평가 ${solved.stats.exactEvals.toLocaleString()}회, ${solved.stats.ms}ms`);
@@ -473,6 +501,8 @@ run: function() {
                     penDetails: !pen ? "-" : pen.type === "태양"
                         ? `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}/${pen.opt3}${pen.stat3}`
                         : `${pen.opt1}${pen.stat1}/${pen.opt2}${pen.stat2}`,
+                    seat: seatsOn ? m.seat : -1,
+                    seatSpec: seatsOn && m.seat >= 0 ? [seats[m.seat].attr, seats[m.seat].type].filter(Boolean).join("/") : "",
                     isReserve: !!meta.flags.isReserve,
                     isAllType: !!meta.flags.isAllType,
                     isUnlocked: !!meta.flags.isUnlocked,
@@ -487,7 +517,7 @@ run: function() {
         console.groupEnd();
 
         if (bestTeam) {
-            bestTeam.sort((a, b) => b.vval - a.vval);
+            if (seatsOn) bestTeam.sort((a, b) => a.seat - b.seat); else bestTeam.sort((a, b) => b.vval - a.vval);
 
             // ★ 예비/해제 정령 버프 프리뷰 계산 (장비도 재최적화)
             const BUFF_2 = [
@@ -544,7 +574,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: rawConfig, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
+        const saveData = { buffs: rawConfig, seats: seats, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -633,7 +663,7 @@ document.addEventListener("DOMContentLoaded", function() {
             el.innerHTML = `
             <article class="rc">
                 <header class="rc-head">
-                    <span class="rc-rank">${i + 1}순위</span>
+                    <span class="rc-rank">${res.seat >= 0 ? `${res.seat + 1}자리${res.seatSpec ? " · " + escHtml(res.seatSpec) : ""}` : `${i + 1}순위`}</span>
                     <h3 class="rc-name">${escHtml(res.dN)}</h3>
                     <div class="rc-tags">${tags}${res.isReserve ? '<span class="chip chip-reserve">예비</span>' : ""}${res.isUnlocked ? '<span class="chip chip-unlock">해제</span>' : ""}</div>
                 </header>
@@ -854,6 +884,11 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
+        if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
+            const a = document.getElementById(`seat${k + 1}-attr`), t = document.getElementById(`seat${k + 1}-type`);
+            if (a && st && st.attr != null) a.value = st.attr;
+            if (t && st && st.type != null) t.value = st.type;
+        });
         if(saved.reserveCount !== undefined && document.getElementById("reserve-count")) document.getElementById("reserve-count").value = saved.reserveCount;
         if(saved.spiritUnlock !== undefined && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
         if(saved.maxResource !== undefined && document.getElementById("max-resource")) document.getElementById("max-resource").value = saved.maxResource;
