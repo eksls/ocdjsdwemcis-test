@@ -606,6 +606,22 @@ document.addEventListener("DOMContentLoaded", function() {
     const IS_V2 = document.documentElement.classList.contains("ui-v2");
     const escHtml = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+    // ===== TAR 계산 (용 타입 + 받는 버프 기준) =====
+    const STAT_ID = { "체": "체", "공": "공", "방": "방" };
+    function tarOf(res) {
+        if (typeof tarScore !== "function") return null;
+        const gv = (id) => { const e = document.getElementById(id); return e ? e.value : ""; };
+        const ok = (v) => v === "체" || v === "공" || v === "방";
+        const ORDER = { "체": 0, "공": 1, "방": 2 };
+        const got = [];
+        if (res.dA && res.dA !== "선택" && res.dA === gv("buff-attr") && ok(gv("buff-stat1"))) got.push(gv("buff-stat1"));
+        if (res.dT && res.dT !== "선택" && res.dT === gv("buff-type") && ok(gv("buff-stat2"))) got.push(gv("buff-stat2"));
+        got.sort((a, b) => ORDER[a] - ORDER[b]);
+        const buff = got.length ? got.join("") : "버프 없음";
+        return tarScore(res.vval, res.dT, buff);
+    }
+    const fmtPct = (v) => (v == null ? "-" : (Math.floor(v * 10) / 10).toFixed(1) + "%");
+
     // ===== 새 디자인(v2) 결과 카드 =====
     function renderV2(results, maxResource, maxResType) {
         const isMaxResult = (maxResource === "result" || maxResource === "all");
@@ -694,6 +710,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 <div class="rc-score">
                     <span class="rc-score-label">최종 비벨${maxResTag ? ` <em>${maxResTag}</em>` : ""}</span>
                     <b class="rc-vval">${n(res.vval)}</b>
+                    <span class="rc-eval">TAR ${fmtPct(tarOf(res))}</span>
                     <span class="rc-eval">eval: ${((res.hp || 0) + (res.atk || 0) * 4 + (res.def || 0) * 4).toLocaleString()}</span>
                 </div>
                 ${bp ? `
@@ -713,7 +730,12 @@ document.addEventListener("DOMContentLoaded", function() {
         const totalDiv = document.createElement("div");
         totalDiv.id = "team-total-vval";
         totalDiv.className = "team-total";
-        totalDiv.innerHTML = `<span class="team-total-label">팀 총합 비벨</span><b class="team-total-value">${n(totalVval)}</b>`;
+        const tars = results.map(tarOf).filter(v => v != null);
+        const avgTar = tars.length ? tars.reduce((a, b) => a + b, 0) / tars.length : null;
+        const avgVval = results.length ? totalVval / results.length : 0;
+        totalDiv.innerHTML = `<span class="team-total-label">팀 총합 비벨</span><b class="team-total-value">${n(totalVval)}</b>`
+            + `<span class="team-total-label">평균 비벨 <b>${n(avgVval)}</b></span>`
+            + `<span class="team-total-label">팀 TAR(평균) <b>${fmtPct(avgTar)}</b> <small>(${results.map(r => fmtPct(tarOf(r))).join(" / ")})</small></span>`;
         if (container) container.appendChild(totalDiv);
     }
 
