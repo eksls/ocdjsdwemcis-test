@@ -10,6 +10,10 @@ const ATTRS = [
   ["nightmare", "악몽"]
 ];
 
+const ATTR_LABEL_BY_KEY = Object.fromEntries(ATTRS);                       // earth → 땅
+const ATTR_KEY_BY_LABEL = Object.fromEntries(ATTRS.map(([k, l]) => [l, k])); // 땅 → earth
+const MAX_SLOTS = 30; // 한 구역(속성별/예비)에 둘 수 있는 최대 칸 수
+
 let dragonSaveTimer;
 function triggerSave() {
   if (dragonSaveTimer) clearTimeout(dragonSaveTimer);
@@ -89,6 +93,227 @@ function createDeleteButton(slot) {
   return del;
 }
 
+// ===== 예비 정령 ⇄ 본 정령 이동 =====
+//  · 본 정령  = 속성별 칸(땅·물·불…)에 있는 정령 (속성 고정, 타입 1개)
+//  · 예비 정령 = 예비 정령 칸에 있는 정령 (속성 1개 + 타입 여러 개 선택 가능)
+//  본 → 예비: 속성은 "예비 속성"으로, 타입은 켜진 타입 버튼 1개로 옮김 (빠지는 정보 없음)
+//  예비 → 본: "예비 속성"에 해당하는 속성 칸으로 이동. 타입이 정확히 1개 켜져 있을 때만 그대로 옮기고,
+//             0개/2개 이상이면 타입은 비워 두고 직접 고르게 안내함 (되돌리기 가능)
+
+// 🔹 칸 하나의 입력값 → 저장 형식 (saveDragonUI 와 이동 기능이 같이 씀)
+function serializeSlot(slot, key) {
+  const nameEl = slot.querySelector(".dragon-name");
+  // 데이터가 없으면 건너뛰지 않고 구조를 유지하기 위해 기본값 설정
+  if (!nameEl) return null;
+
+  const sStats = Array.from(slot.querySelectorAll(".spirit-stat")).map(el => el.value);
+  const sTypes = Array.from(slot.querySelectorAll(".spirit-type")).map(el => el.value);
+
+  // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
+  const togglesEl = slot.querySelector(".type-toggles");
+  const dStatEl = slot.querySelector(".dragon-dstat");
+  const bonusEl = slot.querySelector(".dragon-bonus");
+  const attrEl = slot.querySelector(".dragon-reserve-attr");
+  const typeEl = slot.querySelector(".dragon-type");
+  const disabledEl = slot.querySelector(".dragon-disabled");
+
+  const entry = {
+    attrKey: key,
+    name: nameEl.value,
+    dStat: dStatEl?.value || "9.0",
+    bonus: bonusEl?.value || "부가옵",
+    spiritStats: sStats,
+    spiritTypes: sTypes,
+    disabled: !!disabledEl?.checked
+  };
+
+  if (togglesEl) {
+    entry.selectedTypes = togglesEl._getValue();
+    entry.type = "전체";
+    entry.reserveAttr = attrEl?.value || "속성";
+  } else {
+    entry.type = typeEl?.value || "타입";
+  }
+  return entry;
+}
+
+// 🔹 구조가 바뀐 뒤 공통 마무리 (번호·버튼 글자·마리 수 표시·즉시 저장)
+function afterSlotsChanged(...slotsDivs) {
+  renumberReserve();
+  slotsDivs.forEach(div => {
+    if (!div) return;
+    if (typeof div._updateToggleText === "function") div._updateToggleText();
+    div.dispatchEvent(new Event("input", { bubbles: true })); // ui-v2.js 의 "N마리" 표시 갱신
+  });
+  clearTimeout(dragonSaveTimer);
+  saveDragonUI(); // 이동은 구조가 바뀌는 작업이라 0.3초 기다리지 않고 바로 저장
+}
+
+// 🔹 칸 안에 잠깐 뜨는 안내줄 (iframe 안에서도 보이도록 화면 고정 토스트 대신 칸 안에 표시)
+function showSlotNotice(slot, text, opts = {}) {
+  const old = slot.querySelector(":scope > .slot-notice");
+  if (old && typeof old._close === "function") old._close();
+
+  const box = document.createElement("div");
+  box.className = "slot-notice" + (opts.warn ? " is-warn" : "");
+  let timer = null;
+  const close = () => { clearTimeout(timer); box.remove(); };
+  box._close = close;
+
+  const msg = document.createElement("span");
+  msg.className = "slot-notice-text";
+  msg.textContent = text;
+  box.appendChild(msg);
+
+  if (opts.undo) {
+    const u = document.createElement("button");
+    u.type = "button";
+    u.className = "slot-notice-btn";
+    u.textContent = "되돌리기";
+    u.addEventListener("click", () => { close(); opts.undo(); });
+    box.appendChild(u);
+  }
+  const x = document.createElement("button");
+  x.type = "button";
+  x.className = "slot-notice-x";
+  x.textContent = "✕";
+  x.setAttribute("aria-label", "닫기");
+  x.addEventListener("click", close);
+  box.appendChild(x);
+
+  slot.insertBefore(box, slot.firstChild);
+  timer = setTimeout(close, opts.ms || 10000);
+  // 되돌리기가 있는 안내는, 직접 고치기 시작하면(= 결과를 받아들이면) 닫음
+  if (opts.undo) ["input", "change"].forEach(ev => slot.addEventListener(ev, close, { once: true }));
+  return box;
+}
+
+// 🔹 옮겨진 칸으로 화면 이동 + 잠깐 반짝임 (접혀 있으면 펼침)
+function revealSlot(slot) {
+  const attr = slot.closest(".attr");
+  if (attr && attr.classList.contains("is-collapsed")) {
+    const chev = attr.querySelector(".attr-fold");
+    if (chev) chev.click(); else attr.classList.remove("is-collapsed");
+  }
+  slot.classList.add("slot-flash");
+  setTimeout(() => slot.classList.remove("slot-flash"), 1800);
+  if (window.GUILD_UI_V2 && typeof window.GUILD_UI_V2.scrollTo === "function") window.GUILD_UI_V2.scrollTo(slot);
+  else if (slot.scrollIntoView) slot.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// 🔹 이동 되돌리기: 옮겨진 칸을 지우고, 원래 칸(원래 자리·원래 입력값 그대로)을 복원
+function undoMove(ctx) {
+  const { entry, fromKey, fromIdx, fromWasOnly, newSlot } = ctx;
+  const fromDiv = document.querySelector(`.slots[data-key="${fromKey}"]`);
+  const toDiv = newSlot.parentElement;
+  if (!fromDiv || !toDiv) return;
+
+  const kids = Array.from(fromDiv.children);
+  const restored = createSlot(entry, fromKey === "reserve");
+  if (fromWasOnly && kids.length === 1 && !slotHasContent(kids[0])) {
+    fromDiv.replaceChild(restored, kids[0]);
+  } else if (kids.length >= MAX_SLOTS) {
+    showSlotNotice(newSlot, "원래 칸이 가득 차서 되돌릴 수 없어요", { warn: true, ms: 4500 });
+    return;
+  } else {
+    fromDiv.insertBefore(restored, kids[Math.min(fromIdx, kids.length)] || null);
+  }
+
+  // 옮겨졌던 칸 제거 (마지막 한 칸이면 빈 칸으로 비움)
+  if (toDiv.children.length > 1) newSlot.remove();
+  else toDiv.replaceChild(createSlot(null, toDiv.dataset.key === "reserve"), newSlot);
+
+  afterSlotsChanged(fromDiv, toDiv);
+  revealSlot(restored);
+}
+
+// 🔹 이 칸을 반대쪽(본 ↔ 예비)으로 옮기기
+function moveSlot(slot) {
+  const fromDiv = slot.parentElement;
+  if (!fromDiv || !fromDiv.dataset) return;
+  const fromKey = fromDiv.dataset.key;
+  const toReserve = fromKey !== "reserve";
+  const entry = serializeSlot(slot, fromKey);
+  if (!entry) return;
+
+  let toKey, newData, typeNote = "";
+  if (toReserve) {
+    // 본 → 예비
+    toKey = "reserve";
+    newData = {
+      ...entry,
+      attrKey: "reserve",
+      reserveAttr: ATTR_LABEL_BY_KEY[fromKey] || "속성",
+      selectedTypes: (entry.type && entry.type !== "타입") ? [entry.type] : [],
+      type: "전체"
+    };
+  } else {
+    // 예비 → 본
+    toKey = ATTR_KEY_BY_LABEL[entry.reserveAttr];
+    if (!toKey) {
+      // 속성을 모르면 어느 칸으로 갈지 알 수 없음
+      const sel = slot.querySelector(".dragon-reserve-attr");
+      showSlotNotice(slot, "속성을 먼저 골라 주세요. 본 정령은 속성별 칸으로 옮겨져요.", { warn: true, ms: 4500 });
+      if (sel) { sel.classList.add("slot-need"); sel.addEventListener("change", () => sel.classList.remove("slot-need"), { once: true }); }
+      return;
+    }
+    const types = entry.selectedTypes || [];
+    newData = { ...entry, attrKey: toKey, type: types.length === 1 ? types[0] : "타입" };
+    delete newData.selectedTypes;
+    delete newData.reserveAttr;
+    if (types.length === 0) typeNote = " · 타입을 골라 주세요";
+    else if (types.length > 1) typeNote = " · 타입이 여러 개 선택돼 있어서 비워 뒀어요. 하나만 골라 주세요";
+  }
+
+  const toDiv = document.querySelector(`.slots[data-key="${toKey}"]`);
+  if (!toDiv) return;
+
+  // 들어갈 자리: 빈 칸이 있으면 거기에, 없으면 새 칸 추가
+  const toKids = Array.from(toDiv.children);
+  const blank = toKids.find(k => !slotHasContent(k));
+  if (!blank && toKids.length >= MAX_SLOTS) {
+    showSlotNotice(slot, `${toReserve ? "예비 정령" : (ATTR_LABEL_BY_KEY[toKey] + " 칸")}이 가득 차서(${MAX_SLOTS}칸) 옮길 수 없어요`, { warn: true, ms: 4500 });
+    return;
+  }
+
+  const fromKids = Array.from(fromDiv.children);
+  const ctx = { entry, fromKey, fromIdx: fromKids.indexOf(slot), fromWasOnly: fromKids.length === 1 };
+
+  const newSlot = createSlot(newData, toReserve);
+  if (blank) toDiv.replaceChild(newSlot, blank); else toDiv.appendChild(newSlot);
+  ctx.newSlot = newSlot;
+
+  // 원래 칸 제거 (마지막 한 칸이면 빈 칸으로 비움)
+  if (fromKids.length > 1) slot.remove();
+  else fromDiv.replaceChild(createSlot(null, !toReserve), slot);
+
+  afterSlotsChanged(fromDiv, toDiv);
+
+  // 타입을 골라야 하는 경우 표시
+  if (typeNote) {
+    const t = newSlot.querySelector(".dragon-type");
+    if (t) { t.classList.add("slot-need"); t.addEventListener("change", () => t.classList.remove("slot-need"), { once: true }); }
+  }
+
+  const where = toReserve
+    ? `${ATTR_LABEL_BY_KEY[fromKey]} → 예비 정령으로 옮겼어요`
+    : `예비 정령 → ${ATTR_LABEL_BY_KEY[toKey]} 본 정령으로 옮겼어요`;
+  revealSlot(newSlot);
+  showSlotNotice(newSlot, where + typeNote, { undo: () => undoMove(ctx), ms: typeNote ? 15000 : 10000 });
+}
+
+function createMoveButton(slot, isReserve) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = "slot-move " + (isReserve ? "to-main" : "to-reserve");
+  b.textContent = isReserve ? "→본" : "→예비";
+  const tip = isReserve ? "본 정령으로 옮기기 (속성별 칸으로 이동)" : "예비 정령으로 옮기기";
+  b.title = tip;
+  b.setAttribute("aria-label", tip);
+  b.addEventListener("click", () => moveSlot(slot));
+  return b;
+}
+
 // 🔹 슬롯 생성
 function createSlot(data = null, isReserve = false) {
   const slot = document.createElement("div");
@@ -119,6 +344,7 @@ function createSlot(data = null, isReserve = false) {
   row1.append(disableChk, name);
   row1.append(s1.querySelector(".spirit-stat"), s1.querySelector(".spirit-type"),
               s2.querySelector(".spirit-stat"), s2.querySelector(".spirit-type"));
+  row1.append(createMoveButton(slot, isReserve));
   row1.append(createDeleteButton(slot));
 
   // --- Row 2: 등급 + 타입 + 부가옵 + 정령 3, 4 ---
@@ -368,43 +594,9 @@ function saveDragonUI(){
     const data = [];
     document.querySelectorAll(".attr").forEach(attrDiv => {
         const key = attrDiv.dataset.key;
-        
         attrDiv.querySelectorAll(".slot").forEach(slot => {
-            const nameEl = slot.querySelector(".dragon-name");
-            // 데이터가 없으면 건너뛰지 않고 구조를 유지하기 위해 기본값 설정
-            if (!nameEl) return;
-
-            const sStats = Array.from(slot.querySelectorAll(".spirit-stat")).map(el => el.value);
-            const sTypes = Array.from(slot.querySelectorAll(".spirit-type")).map(el => el.value);
-            
-            // toggles는 row3에 있을 수도 있으므로 slot 전체에서 검색
-            const togglesEl = slot.querySelector(".type-toggles");
-            const dStatEl = slot.querySelector(".dragon-dstat");
-            const bonusEl = slot.querySelector(".dragon-bonus");
-            const attrEl = slot.querySelector(".dragon-reserve-attr");
-            const typeEl = slot.querySelector(".dragon-type");
-            const disabledEl = slot.querySelector(".dragon-disabled");
-            const isReserveSlot = !!togglesEl;
-
-            const entry = {
-                attrKey: key,
-                name: nameEl.value,
-                dStat: dStatEl?.value || "9.0",
-                bonus: bonusEl?.value || "부가옵",
-                spiritStats: sStats,
-                spiritTypes: sTypes,
-                disabled: !!disabledEl?.checked
-            };
-
-            if (isReserveSlot) {
-                entry.selectedTypes = togglesEl._getValue();
-                entry.type = "전체";
-                entry.reserveAttr = attrEl?.value || "속성";
-            } else {
-                entry.type = typeEl?.value || "타입";
-            }
-
-            data.push(entry);
+            const entry = serializeSlot(slot, key);
+            if (entry) data.push(entry);
         });
     });
     
