@@ -251,7 +251,21 @@ run: function() {
         // ===== 일반 용 / 예비 정령 분리 =====
         const spiritUnlock = getV("spirit-unlock"); // "off" | "attrFixed" | "typeFixed" | "all"
         // 체크박스(disabled)는 모드와 관계없이 항상 우선 적용 — 체크되어 있으면 무조건 계산 제외
-        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
+        // 정령 유형 필터 (spirit-grade.js 의 이름표 기준): all | noMakple | yumak | balper
+        const spiritKind = getV("spirit-kind") || "all";
+        const _kindOk = (d) => {
+            if (spiritKind === "all") return true;
+            const g = typeof spiritGrade === "function" ? spiritGrade(d.spiritStats, d.spiritTypes) : "";
+            if (spiritKind === "noMakple") {   // %%%+ 모양(막플·극막·고점막·단막)만 빼고 4칸이 다 찬 정령 전부
+                const st = d.spiritStats || [], ty = d.spiritTypes || [];
+                const full = [0, 1, 2, 3].every(i => ["체", "공", "방"].indexOf(st[i]) >= 0 && (ty[i] === "%" || ty[i] === "+"));
+                return full && ty.slice(0, 4).join("") !== "%%%+";
+            }
+            if (spiritKind === "yumak") return g === "유막" || g === "유유막";
+            if (spiritKind === "balper") return g === "밸퍼";
+            return true;
+        };
+        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled && _kindOk(d));
         // 예비 정령 자동 이름: 용/정령 탭의 칸 순서대로 "예비 정령1, 2, ..." (제외 체크한 칸도 번호는 차지 → 화면 번호와 같음)
         let rIdx = 1;
         allDragonData.forEach(d => {
@@ -259,7 +273,7 @@ run: function() {
             if (!d.name || d.name.trim() === "") { d.name = `예비 정령${rIdx}`; }
             rIdx++;
         });
-        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled && _kindOk(d));
         const reserveDragons = reserveRaw.filter(d => d.name);
 
         // 예비 정령 속성 = 버프 속성
@@ -574,7 +588,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: rawConfig, seats: seats, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
+        const saveData = { buffs: rawConfig, seats: seats, spiritKind: spiritKind, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -884,6 +898,7 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
+        if (saved.spiritKind && document.getElementById("spirit-kind")) document.getElementById("spirit-kind").value = saved.spiritKind;
         if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
             const a = document.getElementById(`seat${k + 1}-attr`), t = document.getElementById(`seat${k + 1}-type`);
             if (a && st && st.attr != null) a.value = st.attr;
@@ -905,7 +920,10 @@ ${(res.fullLog || []).join('\n')}
                 // 새 디자인: 계산이 끝나면 결과 위치로 이동
                 if (IS_V2 && window.GUILD_UI_V2) window.GUILD_UI_V2.scrollTo(document.querySelector(".result-title"));
             }
-            else alert("계산 가능한 드래곤/장비 데이터가 없습니다.");
+            else {
+                const k = document.getElementById("spirit-kind");
+                alert(k && k.value !== "all" ? "고른 정령 유형(" + k.options[k.selectedIndex].text + ")에 맞는 정령을 가진 용이 3마리보다 적어요." : "계산 가능한 드래곤/장비 데이터가 없습니다.");
+            }
         });
     }
 });
