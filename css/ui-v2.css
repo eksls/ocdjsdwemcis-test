@@ -492,19 +492,6 @@ html.ui-v2 #container .slot-move {
 }
 html.ui-v2 #container .slot-move.to-reserve { color: #b8650a !important; background: #fff8ee !important; border-color: #f0cf9f !important; }
 html.ui-v2 #container .slot-move:hover { border-color: var(--ink-2) !important; }
-/* 이동 안내줄 (칸 안): 전역 button 스타일을 덮어씀 */
-html.ui-v2 #container .slot-notice { font-size: 13px; }
-html.ui-v2 #container .slot-notice .slot-notice-btn {
-  height: 32px !important; min-height: 32px !important; padding: 0 10px !important;
-  font-size: 12.5px !important; font-weight: 700 !important;
-  color: var(--ink) !important; background: var(--sheet) !important;
-  border: 1px solid var(--line) !important; border-radius: var(--r-sm) !important;
-}
-html.ui-v2 #container .slot-notice .slot-notice-x {
-  width: 28px !important; height: 32px !important; min-height: 32px !important; padding: 0 !important;
-  font-size: 14px !important; color: inherit !important; background: transparent !important;
-  border: 0 !important; box-shadow: none !important; opacity: .65;
-}
 html.ui-v2 #container .slot-del {
   height: 40px !important; min-height: 40px !important; padding: 0 !important;
   font-size: 15px !important; font-weight: 700 !important; line-height: 1 !important;

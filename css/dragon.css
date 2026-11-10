@@ -220,27 +220,5 @@ input:focus, select:focus {
 .slot-move.to-reserve { color: #b8650a; border-color: #f0cf9f; background: #fff8ee; }
 .slot-move:hover { border-color: #888; background: #f3f4f6; }
 
-/* 칸 안 안내줄 ("옮겼어요 · 되돌리기") */
-.slot-notice {
-  grid-column: 1 / -1;
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 0 8px; padding: 6px 6px 6px 10px;
-  border: 1px solid #ecd9a8; border-radius: 8px;
-  background: #fbf1d9; color: #6b4a00;
-  font-size: 13px; line-height: 1.4;
-}
-.slot-notice.is-warn { background: #fbeceb; border-color: #f1c4c1; color: #a42c25; }
-.slot-notice-text { flex: 1; min-width: 0; word-break: keep-all; }
-.slot-notice-btn {
-  flex: none; height: 30px; padding: 0 10px; font-size: 12.5px; font-weight: 700;
-  border: 1px solid currentColor; border-radius: 6px; background: #fff; color: inherit; cursor: pointer;
-}
-.slot-notice-x { flex: none; width: 28px; height: 28px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 14px; cursor: pointer; opacity: .7; }
-
-/* 옮겨진 칸 반짝임 / 직접 골라야 하는 칸 표시 */
-.slot-flash { animation: slotFlash 1.8s ease-out; }
-@keyframes slotFlash {
-  0%   { outline: 3px solid rgba(224, 138, 30, .9); outline-offset: 0; }
-  100% { outline: 3px solid rgba(224, 138, 30, 0);  outline-offset: 0; }
-}
+/* 직접 골라야 하는 칸 표시 */
 html #container select.slot-need { border-color: #e08a1e !important; box-shadow: 0 0 0 2px rgba(224, 138, 30, .35) !important; }
