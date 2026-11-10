@@ -12,7 +12,9 @@ const ATTRS = [
 
 const ATTR_LABEL_BY_KEY = Object.fromEntries(ATTRS);                       // earth → 땅
 const ATTR_KEY_BY_LABEL = Object.fromEntries(ATTRS.map(([k, l]) => [l, k])); // 땅 → earth
-const MAX_SLOTS = 30; // 한 구역(속성별/예비)에 둘 수 있는 최대 칸 수
+const MAX_MAIN_SLOTS = 30;      // 속성별(본 정령) 구역 최대 칸 수
+const MAX_RESERVE_SLOTS = 200;  // 예비 정령 구역 최대 칸 수
+const maxSlotsOf = key => key === "reserve" ? MAX_RESERVE_SLOTS : MAX_MAIN_SLOTS;
 
 let dragonSaveTimer;
 function triggerSave() {
@@ -149,88 +151,26 @@ function afterSlotsChanged(...slotsDivs) {
   saveDragonUI(); // 이동은 구조가 바뀌는 작업이라 0.3초 기다리지 않고 바로 저장
 }
 
-// 🔹 칸 안에 잠깐 뜨는 안내줄 (iframe 안에서도 보이도록 화면 고정 토스트 대신 칸 안에 표시)
-function showSlotNotice(slot, text, opts = {}) {
-  const old = slot.querySelector(":scope > .slot-notice");
-  if (old && typeof old._close === "function") old._close();
-
-  const box = document.createElement("div");
-  box.className = "slot-notice" + (opts.warn ? " is-warn" : "");
-  let timer = null;
-  const close = () => { clearTimeout(timer); box.remove(); };
-  box._close = close;
-
-  const msg = document.createElement("span");
-  msg.className = "slot-notice-text";
-  msg.textContent = text;
-  box.appendChild(msg);
-
-  if (opts.undo) {
-    const u = document.createElement("button");
-    u.type = "button";
-    u.className = "slot-notice-btn";
-    u.textContent = "되돌리기";
-    u.addEventListener("click", () => { close(); opts.undo(); });
-    box.appendChild(u);
-  }
-  const x = document.createElement("button");
-  x.type = "button";
-  x.className = "slot-notice-x";
-  x.textContent = "✕";
-  x.setAttribute("aria-label", "닫기");
-  x.addEventListener("click", close);
-  box.appendChild(x);
-
-  slot.insertBefore(box, slot.firstChild);
-  timer = setTimeout(close, opts.ms || 10000);
-  // 되돌리기가 있는 안내는, 직접 고치기 시작하면(= 결과를 받아들이면) 닫음
-  if (opts.undo) ["input", "change"].forEach(ev => slot.addEventListener(ev, close, { once: true }));
-  return box;
+// 🔹 받침 유무에 따라 을/를
+function eulReul(w) {
+  const c = w.charCodeAt(w.length - 1);
+  return (c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 !== 0) ? "을" : "를";
 }
 
-// 🔹 옮겨진 칸으로 화면 이동 + 잠깐 반짝임 (접혀 있으면 펼침)
-function revealSlot(slot) {
+// 🔹 옮겨진 칸이 접힌 구역에 있으면 펼침 (화면 스크롤은 하지 않음)
+function expandSection(slot) {
   const attr = slot.closest(".attr");
   if (attr && attr.classList.contains("is-collapsed")) {
     const chev = attr.querySelector(".attr-fold");
     if (chev) chev.click(); else attr.classList.remove("is-collapsed");
   }
-  slot.classList.add("slot-flash");
-  setTimeout(() => slot.classList.remove("slot-flash"), 1800);
-  if (window.GUILD_UI_V2 && typeof window.GUILD_UI_V2.scrollTo === "function") window.GUILD_UI_V2.scrollTo(slot);
-  else if (slot.scrollIntoView) slot.scrollIntoView({ behavior: "smooth", block: "center" });
-}
-
-// 🔹 이동 되돌리기: 옮겨진 칸을 지우고, 원래 칸(원래 자리·원래 입력값 그대로)을 복원
-function undoMove(ctx) {
-  const { entry, fromKey, fromIdx, fromWasOnly, newSlot } = ctx;
-  const fromDiv = document.querySelector(`.slots[data-key="${fromKey}"]`);
-  const toDiv = newSlot.parentElement;
-  if (!fromDiv || !toDiv) return;
-
-  const kids = Array.from(fromDiv.children);
-  const restored = createSlot(entry, fromKey === "reserve");
-  if (fromWasOnly && kids.length === 1 && !slotHasContent(kids[0])) {
-    fromDiv.replaceChild(restored, kids[0]);
-  } else if (kids.length >= MAX_SLOTS) {
-    showSlotNotice(newSlot, "원래 칸이 가득 차서 되돌릴 수 없어요", { warn: true, ms: 4500 });
-    return;
-  } else {
-    fromDiv.insertBefore(restored, kids[Math.min(fromIdx, kids.length)] || null);
-  }
-
-  // 옮겨졌던 칸 제거 (마지막 한 칸이면 빈 칸으로 비움)
-  if (toDiv.children.length > 1) newSlot.remove();
-  else toDiv.replaceChild(createSlot(null, toDiv.dataset.key === "reserve"), newSlot);
-
-  afterSlotsChanged(fromDiv, toDiv);
-  revealSlot(restored);
 }
 
 // 🔹 이 칸을 반대쪽(본 ↔ 예비)으로 옮기기
 function moveSlot(slot) {
   const fromDiv = slot.parentElement;
   if (!fromDiv || !fromDiv.dataset) return;
+  if (!slotHasContent(slot)) return; // 아무것도 입력 안 된 빈 칸은 옮기지 않고 그냥 둠
   const fromKey = fromDiv.dataset.key;
   const toReserve = fromKey !== "reserve";
   const entry = serializeSlot(slot, fromKey);
@@ -251,18 +191,14 @@ function moveSlot(slot) {
     // 예비 → 본
     toKey = ATTR_KEY_BY_LABEL[entry.reserveAttr];
     if (!toKey) {
-      // 속성을 모르면 어느 칸으로 갈지 알 수 없음
-      const sel = slot.querySelector(".dragon-reserve-attr");
-      showSlotNotice(slot, "속성을 먼저 골라 주세요. 본 정령은 속성별 칸으로 옮겨져요.", { warn: true, ms: 4500 });
-      if (sel) { sel.classList.add("slot-need"); sel.addEventListener("change", () => sel.classList.remove("slot-need"), { once: true }); }
+      alert("속성을 먼저 골라 주세요. 본 정령은 속성별 칸으로 옮겨져요.");
       return;
     }
     const types = entry.selectedTypes || [];
     newData = { ...entry, attrKey: toKey, type: types.length === 1 ? types[0] : "타입" };
     delete newData.selectedTypes;
     delete newData.reserveAttr;
-    if (types.length === 0) typeNote = " · 타입을 골라 주세요";
-    else if (types.length > 1) typeNote = " · 타입이 여러 개 선택돼 있어서 비워 뒀어요. 하나만 골라 주세요";
+    if (types.length !== 1) typeNote = "\n(타입이 " + (types.length ? "여러 개 선택돼 있어서" : "없어서") + " 비워 뒀어요. 직접 골라 주세요)";
   }
 
   const toDiv = document.querySelector(`.slots[data-key="${toKey}"]`);
@@ -271,22 +207,20 @@ function moveSlot(slot) {
   // 들어갈 자리: 빈 칸이 있으면 거기에, 없으면 새 칸 추가
   const toKids = Array.from(toDiv.children);
   const blank = toKids.find(k => !slotHasContent(k));
-  if (!blank && toKids.length >= MAX_SLOTS) {
-    showSlotNotice(slot, `${toReserve ? "예비 정령" : (ATTR_LABEL_BY_KEY[toKey] + " 칸")}이 가득 차서(${MAX_SLOTS}칸) 옮길 수 없어요`, { warn: true, ms: 4500 });
+  if (!blank && toKids.length >= maxSlotsOf(toKey)) {
+    alert((toReserve ? "예비 정령" : ATTR_LABEL_BY_KEY[toKey] + " 칸") + "이 가득 차서(" + maxSlotsOf(toKey) + "칸) 옮길 수 없어요");
     return;
   }
 
   const fromKids = Array.from(fromDiv.children);
-  const ctx = { entry, fromKey, fromIdx: fromKids.indexOf(slot), fromWasOnly: fromKids.length === 1 };
-
   const newSlot = createSlot(newData, toReserve);
   if (blank) toDiv.replaceChild(newSlot, blank); else toDiv.appendChild(newSlot);
-  ctx.newSlot = newSlot;
 
   // 원래 칸 제거 (마지막 한 칸이면 빈 칸으로 비움)
   if (fromKids.length > 1) slot.remove();
   else fromDiv.replaceChild(createSlot(null, !toReserve), slot);
 
+  expandSection(newSlot);
   afterSlotsChanged(fromDiv, toDiv);
 
   // 타입을 골라야 하는 경우 표시
@@ -295,11 +229,8 @@ function moveSlot(slot) {
     if (t) { t.classList.add("slot-need"); t.addEventListener("change", () => t.classList.remove("slot-need"), { once: true }); }
   }
 
-  const where = toReserve
-    ? `${ATTR_LABEL_BY_KEY[fromKey]} → 예비 정령으로 옮겼어요`
-    : `예비 정령 → ${ATTR_LABEL_BY_KEY[toKey]} 본 정령으로 옮겼어요`;
-  revealSlot(newSlot);
-  showSlotNotice(newSlot, where + typeNote, { undo: () => undoMove(ctx), ms: typeNote ? 15000 : 10000 });
+  const nm = (entry.name || "").trim() || "이름 없는 정령";
+  alert(nm + eulReul(nm) + (toReserve ? " 예비정령으로" : " 본 정령(" + ATTR_LABEL_BY_KEY[toKey] + ")으로") + " 옮겼어요" + typeNote);
 }
 
 function createMoveButton(slot, isReserve) {
@@ -568,7 +499,7 @@ ATTRS.forEach(([key, label]) => {
 
   const addBtn = document.createElement("button");
   addBtn.textContent = "칸 추가";
-  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < 30) { slotsDiv.appendChild(createSlot(null, true)); renumberReserve(); triggerSave(); updateToggleText(); } };
+  addBtn.onclick = () => { if(slotsDiv.querySelectorAll('.slot').length < MAX_RESERVE_SLOTS) { slotsDiv.appendChild(createSlot(null, true)); renumberReserve(); triggerSave(); updateToggleText(); } };
 
   const removeBtn = document.createElement("button");
   removeBtn.textContent = "칸 제거";
