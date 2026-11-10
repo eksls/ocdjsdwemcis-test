@@ -897,3 +897,7 @@ html.ui-v2 .k-seat-row { display: grid; grid-template-columns: 56px repeat(3, mi
 html.ui-v2 .k-seat-row select { width: 100% !important; min-width: 0; }
 html.ui-v2 .k-seat-head span { font-size: 12px; font-weight: 600; color: var(--ink-3); padding-left: 2px; }
 html.ui-v2 .k-tag.seat { color: var(--ink); background: var(--sheet-2); border: 1px solid var(--line-2); }
+
+html.ui-v2 .team-total .team-total-label { flex: 1 1 100%; }
+html.ui-v2 .team-total .team-total-label b { color: var(--gold); font-family: var(--num); margin-left: 4px; }
+html.ui-v2 .team-total .team-total-label small { color: #c3cadb; font-weight: 500; }
