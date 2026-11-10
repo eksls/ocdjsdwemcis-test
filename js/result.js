@@ -197,8 +197,8 @@ run: function() {
         const maxReserve = parseInt(getV("reserve-count")) || 0;
         // 자리별 속성·타입 ("" = 전체). 하나라도 정하면 세 마리를 자리 1·2·3 에 맞춰 앉힘
         const seatV = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
-        const seats = [1, 2, 3].map(n => ({ attr: seatV(`seat${n}-attr`), type: seatV(`seat${n}-type`), kind: seatV(`seat${n}-kind`) || "all" }));
-        const seatsOn = seats.some(x => x.attr || x.type || x.kind !== "all");
+        const seats = [1, 2, 3].map(n => ({ attr: seatV(`seat${n}-attr`), type: seatV(`seat${n}-type`), kind: getV(`seat${n}-kind`) || "all" }));
+        const seatsOn = seats.some(x => x.attr || x.type || (x.kind && x.kind !== "all"));
         const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
 
         const pool = {};
@@ -250,17 +250,18 @@ run: function() {
 
         // ===== 일반 용 / 예비 정령 분리 =====
         const spiritUnlock = getV("spirit-unlock"); // "off" | "attrFixed" | "typeFixed" | "all"
-        // 정령 유형은 전역 제외가 아니라 각 자리별 배정 조건으로 적용
-        const _kindOk = (d, kind) => {
-            if (!kind || kind === "all") return true;
+        // 체크박스(disabled)는 모드와 관계없이 항상 우선 적용 — 체크되어 있으면 무조건 계산 제외
+        // 정령 유형 필터 (spirit-grade.js 의 이름표 기준): all | noMakple | yumak | balper
+        const _kindOk = (d, spiritKind) => {
+            if (!spiritKind || spiritKind === "all") return true;
             const g = typeof spiritGrade === "function" ? spiritGrade(d.spiritStats, d.spiritTypes) : "";
-            if (kind === "noMakple") {
+            if (spiritKind === "noMakple") { // %%%+ 모양만 제외
                 const st = d.spiritStats || [], ty = d.spiritTypes || [];
                 const full = [0, 1, 2, 3].every(i => ["체", "공", "방"].indexOf(st[i]) >= 0 && (ty[i] === "%" || ty[i] === "+"));
-                return !(full && ty.slice(0, 4).join("") === "%%%+");
+                return full && ty.slice(0, 4).join("") !== "%%%+";
             }
-            if (kind === "yumak") return g === "유막" || g === "유유막";
-            if (kind === "balper") return g === "밸퍼";
+            if (spiritKind === "yumak") return g === "유막" || g === "유유막";
+            if (spiritKind === "balper") return g === "밸퍼";
             return true;
         };
         const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
@@ -383,7 +384,7 @@ run: function() {
             };
         }
         // flex = 이 용이 자리에 맞춰 바꿀 수 있는 것 { attr, type } (예비 정령: 둘 다 / 해제: 모드대로 / 일반 용: 없음)
-        const _seatFits = (v, st, dragon) => (!st.attr || v.attrKr === st.attr) && (!st.type || v.type === st.type) && _kindOk(dragon, st.kind);
+        const _seatFits = (v, st) => (!st.attr || v.attrKr === st.attr) && (!st.type || v.type === st.type);
         function _pushDragon(dragon, attrKr, types, flags, flex) {
             flex = flex || { attr: false, type: false };
             const list = (types || []).map(t => _variantFor(dragon, attrKr, t)).filter(Boolean);
@@ -404,7 +405,7 @@ run: function() {
             list.forEach(v => {
                 const k = (v.attrKr || "") + "|" + v.type;
                 if (seen.has(k)) return; seen.add(k);
-                v.seatMask = seats.reduce((m, st, j) => m | (_seatFits(v, st, dragon) ? 1 << j : 0), 0);
+                v.seatMask = seats.reduce((m, st, j) => m | (_seatFits(v, st) && _kindOk(dragon, st.kind) ? 1 << j : 0), 0);
                 variants.push(v);
             });
             if (!variants.length || (seatsOn && !variants.some(v => v.seatMask))) return;
@@ -896,11 +897,12 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
-                if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
+        if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
             const a = document.getElementById(`seat${k + 1}-attr`), t = document.getElementById(`seat${k + 1}-type`), kind = document.getElementById(`seat${k + 1}-kind`);
             if (a && st && st.attr != null) a.value = st.attr;
             if (t && st && st.type != null) t.value = st.type;
             if (kind && st && st.kind != null) kind.value = st.kind;
+            else if (kind && saved.spiritKind) kind.value = saved.spiritKind;
         });
         if(saved.reserveCount !== undefined && document.getElementById("reserve-count")) document.getElementById("reserve-count").value = saved.reserveCount;
         if(saved.spiritUnlock !== undefined && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
@@ -919,8 +921,8 @@ ${(res.fullLog || []).join('\n')}
                 if (IS_V2 && window.GUILD_UI_V2) window.GUILD_UI_V2.scrollTo(document.querySelector(".result-title"));
             }
             else {
-                const k = document.getElementById("spirit-kind");
-                alert(k && k.value !== "all" ? "고른 정령 유형(" + k.options[k.selectedIndex].text + ")에 맞는 정령을 가진 용이 3마리보다 적어요." : "계산 가능한 드래곤/장비 데이터가 없습니다.");
+                const kinds = [1, 2, 3].map(n => document.getElementById(`seat${n}-kind`)).filter(k => k && k.value !== "all");
+                alert(kinds.length ? "자리별 정령 유형 조건에 맞는 후보가 부족하거나 조합이 없습니다." : "계산 가능한 드래곤/장비 데이터가 없습니다.");
             }
         });
     }
