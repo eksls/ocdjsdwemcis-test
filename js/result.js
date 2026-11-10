@@ -197,8 +197,8 @@ run: function() {
         const maxReserve = parseInt(getV("reserve-count")) || 0;
         // 자리별 속성·타입 ("" = 전체). 하나라도 정하면 세 마리를 자리 1·2·3 에 맞춰 앉힘
         const seatV = (id) => { const el = document.getElementById(id); return el ? el.value : ""; };
-        const seats = [1, 2, 3].map(n => ({ attr: seatV(`seat${n}-attr`), type: seatV(`seat${n}-type`) }));
-        const seatsOn = seats.some(x => x.attr || x.type);
+        const seats = [1, 2, 3].map(n => ({ attr: seatV(`seat${n}-attr`), type: seatV(`seat${n}-type`), kind: seatV(`seat${n}-kind`) || "all" }));
+        const seatsOn = seats.some(x => x.attr || x.type || x.kind !== "all");
         const maxResource = getV("max-resource"); // "off" | "preview" | "result" | "all"
 
         const pool = {};
@@ -250,22 +250,20 @@ run: function() {
 
         // ===== 일반 용 / 예비 정령 분리 =====
         const spiritUnlock = getV("spirit-unlock"); // "off" | "attrFixed" | "typeFixed" | "all"
-        // 체크박스(disabled)는 모드와 관계없이 항상 우선 적용 — 체크되어 있으면 무조건 계산 제외
-        // 정령 유형 필터 (spirit-grade.js 의 이름표 기준): all | noMakple | yumak | balper
-        const spiritKind = getV("spirit-kind") || "all";
-        const _kindOk = (d) => {
-            if (spiritKind === "all") return true;
+        // 정령 유형은 전역 제외가 아니라 각 자리별 배정 조건으로 적용
+        const _kindOk = (d, kind) => {
+            if (!kind || kind === "all") return true;
             const g = typeof spiritGrade === "function" ? spiritGrade(d.spiritStats, d.spiritTypes) : "";
-            if (spiritKind === "noMakple") {   // %%%+ 모양(막플·극막·고점막·단막)만 빼고 4칸이 다 찬 정령 전부
+            if (kind === "noMakple") {
                 const st = d.spiritStats || [], ty = d.spiritTypes || [];
                 const full = [0, 1, 2, 3].every(i => ["체", "공", "방"].indexOf(st[i]) >= 0 && (ty[i] === "%" || ty[i] === "+"));
-                return full && ty.slice(0, 4).join("") !== "%%%+";
+                return !(full && ty.slice(0, 4).join("") === "%%%+");
             }
-            if (spiritKind === "yumak") return g === "유막" || g === "유유막";
-            if (spiritKind === "balper") return g === "밸퍼";
+            if (kind === "yumak") return g === "유막" || g === "유유막";
+            if (kind === "balper") return g === "밸퍼";
             return true;
         };
-        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled && _kindOk(d));
+        const rawRegular = allDragonData.filter(d => d.attrKey !== "reserve" && d.name && d.type !== "타입" && !d.disabled);
         // 예비 정령 자동 이름: 용/정령 탭의 칸 순서대로 "예비 정령1, 2, ..." (제외 체크한 칸도 번호는 차지 → 화면 번호와 같음)
         let rIdx = 1;
         allDragonData.forEach(d => {
@@ -273,7 +271,7 @@ run: function() {
             if (!d.name || d.name.trim() === "") { d.name = `예비 정령${rIdx}`; }
             rIdx++;
         });
-        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled && _kindOk(d));
+        const reserveRaw = allDragonData.filter(d => d.attrKey === "reserve" && d.type !== "타입" && !d.disabled);
         const reserveDragons = reserveRaw.filter(d => d.name);
 
         // 예비 정령 속성 = 버프 속성
@@ -385,7 +383,7 @@ run: function() {
             };
         }
         // flex = 이 용이 자리에 맞춰 바꿀 수 있는 것 { attr, type } (예비 정령: 둘 다 / 해제: 모드대로 / 일반 용: 없음)
-        const _seatFits = (v, st) => (!st.attr || v.attrKr === st.attr) && (!st.type || v.type === st.type);
+        const _seatFits = (v, st, dragon) => (!st.attr || v.attrKr === st.attr) && (!st.type || v.type === st.type) && _kindOk(dragon, st.kind);
         function _pushDragon(dragon, attrKr, types, flags, flex) {
             flex = flex || { attr: false, type: false };
             const list = (types || []).map(t => _variantFor(dragon, attrKr, t)).filter(Boolean);
@@ -406,7 +404,7 @@ run: function() {
             list.forEach(v => {
                 const k = (v.attrKr || "") + "|" + v.type;
                 if (seen.has(k)) return; seen.add(k);
-                v.seatMask = seats.reduce((m, st, j) => m | (_seatFits(v, st) ? 1 << j : 0), 0);
+                v.seatMask = seats.reduce((m, st, j) => m | (_seatFits(v, st, dragon) ? 1 << j : 0), 0);
                 variants.push(v);
             });
             if (!variants.length || (seatsOn && !variants.some(v => v.seatMask))) return;
@@ -588,7 +586,7 @@ run: function() {
         }
 
         // ★ 설정은 결과 유무와 관계없이 항상 저장
-        const saveData = { buffs: rawConfig, seats: seats, spiritKind: spiritKind, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
+        const saveData = { buffs: rawConfig, seats: seats, maxResource: maxResource, maxResType: maxResType, reserveCount: maxReserve, spiritUnlock: spiritUnlock, reserveBuffMode: reserveBuffMode, reserveTypeMode: reserveTypeMode };
         if (bestTeam) {
             saveData.results = bestTeam;
         }
@@ -898,11 +896,11 @@ ${(res.fullLog || []).join('\n')}
             const vals = [b.b1, b.b2, b.b3, b.b4, b.d1, b.d2, b.d3, b.d4];
             ids.forEach((id, i) => { if(document.getElementById(id)) document.getElementById(id).value = vals[i]; });
         }
-        if (saved.spiritKind && document.getElementById("spirit-kind")) document.getElementById("spirit-kind").value = saved.spiritKind;
-        if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
-            const a = document.getElementById(`seat${k + 1}-attr`), t = document.getElementById(`seat${k + 1}-type`);
+                if (Array.isArray(saved.seats)) saved.seats.forEach((st, k) => {
+            const a = document.getElementById(`seat${k + 1}-attr`), t = document.getElementById(`seat${k + 1}-type`), kind = document.getElementById(`seat${k + 1}-kind`);
             if (a && st && st.attr != null) a.value = st.attr;
             if (t && st && st.type != null) t.value = st.type;
+            if (kind && st && st.kind != null) kind.value = st.kind;
         });
         if(saved.reserveCount !== undefined && document.getElementById("reserve-count")) document.getElementById("reserve-count").value = saved.reserveCount;
         if(saved.spiritUnlock !== undefined && document.getElementById("spirit-unlock")) document.getElementById("spirit-unlock").value = saved.spiritUnlock;
