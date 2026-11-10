@@ -480,9 +480,31 @@ html.ui-v2 #container .slot-grid {
 html.ui-v2 #container .slot-row { display: contents !important; }
 html.ui-v2 #container .slot-row > * { margin: 0 !important; min-width: 0 !important; width: auto !important; flex: none !important; }
 html.ui-v2 #container .row1 > :nth-child(1) { order: 1; grid-column: span 1; }
-html.ui-v2 #container .row1 > :nth-child(2) { order: 2; grid-column: span 6; }
-/* 칸 지우기 버튼: 이름 오른쪽 끝 */
+html.ui-v2 #container .row1 > :nth-child(2) { order: 2; grid-column: span 4; }
+/* 예비↔본 이동 버튼 / 칸 지우기 버튼: 이름 오른쪽 끝 (1줄 = 체크 1 + 이름 4 + 이동 2 + 지우기 1) */
+html.ui-v2 #container .row1 > .slot-move { order: 2; grid-column: span 2; }
 html.ui-v2 #container .row1 > .slot-del { order: 2; grid-column: span 1; }
+html.ui-v2 #container .slot-move {
+  height: 40px !important; min-height: 40px !important; padding: 0 !important;
+  font-size: 12.5px !important; font-weight: 700 !important; line-height: 1 !important; white-space: nowrap;
+  color: var(--ink-2) !important; background: var(--sheet) !important;
+  border: 1px solid var(--line) !important; border-radius: var(--r-sm) !important; box-shadow: none !important; cursor: pointer;
+}
+html.ui-v2 #container .slot-move.to-reserve { color: #b8650a !important; background: #fff8ee !important; border-color: #f0cf9f !important; }
+html.ui-v2 #container .slot-move:hover { border-color: var(--ink-2) !important; }
+/* 이동 안내줄 (칸 안): 전역 button 스타일을 덮어씀 */
+html.ui-v2 #container .slot-notice { font-size: 13px; }
+html.ui-v2 #container .slot-notice .slot-notice-btn {
+  height: 32px !important; min-height: 32px !important; padding: 0 10px !important;
+  font-size: 12.5px !important; font-weight: 700 !important;
+  color: var(--ink) !important; background: var(--sheet) !important;
+  border: 1px solid var(--line) !important; border-radius: var(--r-sm) !important;
+}
+html.ui-v2 #container .slot-notice .slot-notice-x {
+  width: 28px !important; height: 32px !important; min-height: 32px !important; padding: 0 !important;
+  font-size: 14px !important; color: inherit !important; background: transparent !important;
+  border: 0 !important; box-shadow: none !important; opacity: .65;
+}
 html.ui-v2 #container .slot-del {
   height: 40px !important; min-height: 40px !important; padding: 0 !important;
   font-size: 15px !important; font-weight: 700 !important; line-height: 1 !important;
