@@ -465,7 +465,7 @@ run: function() {
             lv: lvl, val: DB.GEM_LEVEL_STATS[lvl][kr], count: resPool[lvl]?.[kr] || 0
         })));
 
-        const solved = ExactOptimizer.solve({ dragons: optDragons, accs: optAccs, pens: optPens, gems: optGems, maxReserve, seatsOn });
+        const solved = ExactOptimizer.solve({ dragons: optDragons, accs: optAccs, pens: optPens, gems: optGems, maxReserve, seatsOn, seatKeys: seats.map(x => x.attr + "|" + x.type) });
 
         console.group("🛡️ 길드전 최적화 v3 - 정확 최적화(분기 한정)");
         console.log(`용 후보 ${optDragons.length}마리, 옵션 ${solved.stats.options.toLocaleString()}개 중 ${solved.stats.keptOptions.toLocaleString()}개 탐색, 정확 평가 ${solved.stats.exactEvals.toLocaleString()}회, ${solved.stats.ms}ms`);

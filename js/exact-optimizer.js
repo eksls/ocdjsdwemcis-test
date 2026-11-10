@@ -260,7 +260,19 @@
 
     // ---------- 1단계: 용별 최대 UB ----------
     const mx = new Array(n).fill(0);
-    for (let di = 0; di < n; di++) forEachOption(di, (ctx, sh, ub) => { stats.options++; if (ub > mx[di]) mx[di] = ub; });
+    // 자리 조건: 자리마다 용별 상위 옵션 몇 개 (자리에 맞는 첫 팀을 빨리 잡는 데 씀)
+    const SEAT_K = 6;
+    const seatTop = seatsOn ? [0, 1, 2].map(() => Array.from({ length: n }, () => [])) : null;
+    for (let di = 0; di < n; di++) forEachOption(di, (ctx, sh, ub) => {
+      stats.options++; if (ub > mx[di]) mx[di] = ub;
+      if (seatsOn) for (let j = 0; j < 3; j++) {
+        if (!(ctx.v.seatMask >> j & 1)) continue;
+        const L = seatTop[j][di];
+        if (L.length < SEAT_K || ub > L[L.length - 1].ub) {
+          L.push({ ctx, sh: sh.slice(), ub }); L.sort((x, y) => y.ub - x.ub); if (L.length > SEAT_K) L.pop();
+        }
+      }
+    });
 
     // ---------- 2단계: 초기 최고값 (탐욕) ----------
     let best = -1, bestTeam = null;
@@ -290,6 +302,29 @@
       }
     }
 
+    // 자리 조건: 자리마다 상위 용 몇 마리씩 골라 (자리 1·2·3 순서대로) 맞는 팀을 만들어 첫 최고값을 잡음
+    if (seatsOn) {
+      const pick = [0, 1, 2].map(j => [...Array(n).keys()].filter(di => seatTop[j][di].length)
+        .sort((x, y) => seatTop[j][y][0].ub - seatTop[j][x][0].ub).slice(0, 5));
+      for (const d0 of pick[0]) for (const d1 of pick[1]) for (const d2 of pick[2]) {
+        if (d0 === d1 || d0 === d2 || d1 === d2) continue;
+        const ids = [d0, d1, d2];
+        for (const order of PERM3) {            // 장신구·팬던트를 먼저 가져갈 순서
+          const chosen = [null, null, null];
+          let okAll = true;
+          for (const q of order) {
+            const others = chosen.filter(Boolean);
+            const o = seatTop[q][ids[q]].find(c => compatible([...others, c]));
+            if (!o) { okAll = false; break; }
+            chosen[q] = o;
+          }
+          if (!okAll) continue;
+          const ev = exactEval(chosen);
+          if (ev.total > best) { best = ev.total; bestTeam = buildResult(chosen, ev); }
+        }
+      }
+    }
+
     // ---------- 3단계: 상한으로 옵션 미리 버리기 + 분기 한정 ----------
     const sortedMx = mx.slice().sort((x, y) => y - x);
     const sets = [];
@@ -309,6 +344,53 @@
     }
     sets.sort((x, y) => y.top - x.top);
     const m = sets.length;
+
+    if (seatsOn) {
+      // 자리마다 (그 자리에 맞는 옵션만) 용 목록을 따로 만들어, 자리 1·2·3 에 한 마리씩 놓으며 분기 한정
+      //  같은 조건의 자리끼리는 용 번호 순서를 강제해서 같은 팀을 두 번 보지 않음
+      const keys = input.seatKeys || ["a", "b", "c"];
+      const per = [0, 1, 2].map(j => sets.map(st => {
+        const opts = st.opts.filter(o => maskOf(o) >> j & 1);
+        return opts.length ? { di: st.di, opts, top: opts[0].ub } : null;
+      }).filter(Boolean).sort((x, y) => y.top - x.top));
+      const top1 = per[1].length ? per[1][0].top : 0, top2 = per[2].length ? per[2][0].top : 0;
+      const same01 = keys[0] === keys[1], same12 = keys[1] === keys[2], same02 = keys[0] === keys[2];
+      for (const S0 of per[0]) {
+        if (S0.top + top1 + top2 <= best) break;
+        for (const S1 of per[1]) {
+          if (S0.top + S1.top + top2 <= best) break;
+          if (S1.di === S0.di || (same01 && S1.di < S0.di)) continue;
+          const pairCache = new Map();
+          for (const S2 of per[2]) {
+            if (S0.top + S1.top + S2.top <= best) break;
+            if (S2.di === S0.di || S2.di === S1.di || (same12 && S2.di < S1.di) || (same02 && S2.di < S0.di)) continue;
+            const rs = (dragons[S0.di].isReserve ? 1 : 0) + (dragons[S1.di].isReserve ? 1 : 0) + (dragons[S2.di].isReserve ? 1 : 0);
+            if (rs > maxReserve) continue;
+            stats.triplesVisited++;
+            const A = S0.opts, B = S1.opts, C = S2.opts;
+            for (const a of A) {
+              if (a.ub + B[0].ub + C[0].ub <= best) break;
+              let am = pairCache.get(a);
+              if (!am) { am = new Map(); pairCache.set(a, am); }
+              for (const b of B) {
+                if (a.ub + b.ub + C[0].ub <= best) break;
+                if (!compat2(a, b)) continue;
+                let ab = am.get(b);
+                if (ab === undefined) { ab = pairEval(a, b); am.set(b, ab); stats.pairEvals++; }
+                if (ab + C[0].ub <= best) continue;
+                for (const c of C) {
+                  if (ab + c.ub <= best) break;
+                  if (!compat3(a, b, c)) continue;
+                  const trio = [a, b, c];
+                  const ev = exactEval(trio);
+                  if (ev.total > best) { best = ev.total; bestTeam = buildResult(trio, ev); }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else
 
     for (let i = 0; i < m - 2; i++) {
       if (sets[i].top + sets[i + 1].top + sets[i + 2].top <= best) break;
