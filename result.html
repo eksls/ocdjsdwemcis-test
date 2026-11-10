@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<script src="js/ui-mode.js?v=20261103"></script>
+<script src="js/ui-mode.js?v=20261110"></script>
 <title>길드전 결과</title>
 <link rel="stylesheet" href="css/common.css">
 <link rel="stylesheet" href="css/result.css">
@@ -63,6 +63,14 @@
       <select id="max-resource-type"><option value="all">전체</option><option value="pen">팬던트</option><option value="acc">장신구</option><option value="gem">젬</option><option value="pen+acc">팬던트+장신구</option><option value="pen+gem">팬던트+젬</option><option value="acc+gem">장신구+젬</option></select>
     </label>
   </div>
+  <div class="k-sub-h"><b>자리별 속성 · 타입</b><small>전체로 두면 지금처럼 다 검사</small></div>
+  <div class="k-seats">
+    <div class="k-seat-row k-seat-head"><span></span><span>속성</span><span>타입</span></div>
+    <div class="k-seat-row"><span class="k-tag seat">1자리</span><select id="seat1-attr" aria-label="1자리 속성"><option value="">전체</option><option>땅</option><option>물</option><option>불</option><option>바람</option><option>빛</option><option>어둠</option><option>황혼</option><option>여명</option><option>악몽</option></select><select id="seat1-type" aria-label="1자리 타입"><option value="">전체</option><option>체</option><option>공</option><option>방</option><option>체공</option><option>체방</option><option>공방</option></select></div>
+    <div class="k-seat-row"><span class="k-tag seat">2자리</span><select id="seat2-attr" aria-label="2자리 속성"><option value="">전체</option><option>땅</option><option>물</option><option>불</option><option>바람</option><option>빛</option><option>어둠</option><option>황혼</option><option>여명</option><option>악몽</option></select><select id="seat2-type" aria-label="2자리 타입"><option value="">전체</option><option>체</option><option>공</option><option>방</option><option>체공</option><option>체방</option><option>공방</option></select></div>
+    <div class="k-seat-row"><span class="k-tag seat">3자리</span><select id="seat3-attr" aria-label="3자리 속성"><option value="">전체</option><option>땅</option><option>물</option><option>불</option><option>바람</option><option>빛</option><option>어둠</option><option>황혼</option><option>여명</option><option>악몽</option></select><select id="seat3-type" aria-label="3자리 타입"><option value="">전체</option><option>체</option><option>공</option><option>방</option><option>체공</option><option>체방</option><option>공방</option></select></div>
+  </div>
+  <p class="k-note">자리에 속성·타입을 정하면 예비 정령·해제한 정령을 그 속성·타입으로 넣어 보고 가장 잘 맞는 정령을 고릅니다. 고정된 용은 속성·타입이 맞을 때만 그 자리에 들어가요.</p>
 </section>
 
 <div class="calc-wrap">
@@ -87,7 +95,7 @@
 
 <script src="js/shared.js"></script>
 <script src="js/spirit-grade.js?v=20261026"></script>
-<script src="js/exact-optimizer.js?v=20261026"></script>
-<script src="js/result.js?v=20261103b"></script>
+<script src="js/exact-optimizer.js?v=20261110"></script>
+<script src="js/result.js?v=20261110"></script>
 </body>
 </html>
